@@ -190,16 +190,24 @@ do
 				-- check if supply needed
 				if v.supplyUnit then
 					local un = Unit.getByName(v.supplyUnit)
-					if un and (un:getCategory()==Unit.Category.AIRPLANE or un:getCategory()==Unit.Category.HELICOPTER) and farpCommander.isLanded(un) then
-						un:destroy()
-					end
-					
-					un = Unit.getByName(v.supplyUnit)
-					if not un then
+					if un then
+						if farpCommander.isLanded(un) then
+							if targetfarp.side == initiatorfarp.side or targetfarp.side == 0 then
+								if not farpCommander.isFullyUpgraded(targetfarp) then
+									trigger.action.outText(initiatorfarp.zone..' sending supplies to '..targetfarp.zone, 5)
+									mist.respawnGroup(v.supplyUnit,true)
+									farpCommander.startUnit(v.supplyUnit)
+								end
+							else
+								un:destroy()
+							end
+						end
+					else
 						if targetfarp.side == initiatorfarp.side or targetfarp.side == 0 then
 							if not farpCommander.isFullyUpgraded(targetfarp) then
 								trigger.action.outText(initiatorfarp.zone..' sending supplies to '..targetfarp.zone, 5)
 								mist.respawnGroup(v.supplyUnit,true)
+								mist.scheduleFunction(farpCommander.startUnit, {v.supplyUnit}, timer.getTime()+300)
 							end
 						end
 					end
@@ -209,18 +217,28 @@ do
 				if v.attackGroup then
 					local gr = Group.getByName(v.attackGroup)
 					if gr then
+						local allLanded = true
 						for ix,vx in ipairs(gr:getUnits()) do
-							if (vx:getCategory()==Unit.Category.AIRPLANE or vx:getCategory()==Unit.Category.HELICOPTER) and farpCommander.isLanded(vx) then
-								vx:destroy()
+							if not farpCommander.isLanded(vx) then
+								allLanded = false
+								break
 							end
 						end
-					end
-					
-					gr = Group.getByName(v.attackGroup)
-					if not gr then
+						
+						if allLanded then
+							if targetfarp.side ~= 0 and targetfarp.side ~= initiatorfarp.side then
+								trigger.action.outText(initiatorfarp.zone..' attacking '..targetfarp.zone, 5)
+								mist.respawnGroup(v.attackGroup,true)
+								farpCommander.startGroup(v.attackGroup)
+							else
+								gr:destroy()
+							end
+						end
+					else
 						if targetfarp.side ~= 0 and targetfarp.side ~= initiatorfarp.side then
 							trigger.action.outText(initiatorfarp.zone..' attacking '..targetfarp.zone, 5)
 							mist.respawnGroup(v.attackGroup,true)
+							mist.scheduleFunction(farpCommander.startGroup, {v.attackGroup}, timer.getTime()+300)
 						end
 					end
 				end
@@ -229,22 +247,46 @@ do
 				if v.cap then
 					local capgr = Group.getByName(v.cap)
 					if capgr then
+						local allLanded = true
 						for ix,vx in ipairs(capgr:getUnits()) do
-							if (vx:getCategory()==Unit.Category.AIRPLANE or vx:getCategory()==Unit.Category.HELICOPTER) and farpCommander.isLanded(vx) then
-								vx:destroy()
+							if not farpCommander.isLanded(vx) then
+								allLanded = false
+								break
 							end
 						end
-					end
-					
-					capgr = Group.getByName(v.cap)
-					if not capgr then
+						
+						if allLanded then
+							if targetfarp.side == initiatorfarp.side then
+								trigger.action.outText(initiatorfarp.zone..' sending patrol to '..targetfarp.zone, 5)
+								mist.respawnGroup(v.cap,true)
+								farpCommander.startGroup(v.cap)
+							else
+								capgr:destroy()
+							end
+						end
+					else
 						if targetfarp.side == initiatorfarp.side then
 							trigger.action.outText(initiatorfarp.zone..' sending patrol to '..targetfarp.zone, 5)
 							mist.respawnGroup(v.cap,true)
+							mist.scheduleFunction(farpCommander.startGroup, {v.cap}, timer.getTime()+300)
 						end
 					end
 				end
 			end
+		end
+	end
+	
+	function farpCommander.startGroup(groupname)
+		local ng = Group.getByName(groupname)
+		if ng then
+			ng:getController():setCommand({id = 'Start', params={}})
+		end
+	end
+	
+	function farpCommander.startUnit(unitname)
+		local nu = Unit.getByName(unitname)
+		if nu then
+			nu:getGroup():getController():setCommand({id = 'Start', params={}})
 		end
 	end
 	
