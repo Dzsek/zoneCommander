@@ -89,7 +89,6 @@ do
 		return obj
 	end
 	
-	--zone: ZoneCommander
 	function BattleCommander:addZone(zone)
 		table.insert(self.zones, zone)
 		zone.index = self:getZoneIndexByName(zone.zone)
@@ -136,7 +135,7 @@ do
 		
 		local ev = {}
 		function ev:onEvent(event)
-			if event.id == 15 and event.initiator and event.initiator:getCategory() == Object.Category.UNIT then
+			if (event.id == 15 or event.id==20) and event.initiator and event.initiator:getCategory() == Object.Category.UNIT then
 				local pname = event.initiator:getPlayerName()
 				if pname then
 					for index, zc in ipairs(BattleCommander:getZones()) do
@@ -178,9 +177,14 @@ do
 		obj.index = -1
 		obj.battleCommander = {}
 		obj.groups = {}
+		obj.restrictedGroups = {}
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
+	end
+	
+	function ZoneCommander:addRestrictedPlayerGroup(groupinfo)
+		table.insert(self.restrictedGroups, groupinfo)
 	end
 
 	function ZoneCommander:init()
@@ -211,6 +215,10 @@ do
 					self.built[i] = gr.name
 				end
 			end
+		end
+		
+		for i,v in ipairs(self.restrictedGroups) do
+			trigger.action.setUserFlag(v.name, v.side ~= self.side)
 		end
 		
 		for i,v in ipairs(self.groups) do
@@ -263,6 +271,10 @@ do
 					crate:destroy()
 				end
 			end
+		end
+		
+		for i,v in ipairs(self.restrictedGroups) do
+			trigger.action.setUserFlag(v.name, v.side ~= self.side)
 		end
 	end
 	

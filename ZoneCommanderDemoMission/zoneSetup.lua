@@ -40,6 +40,13 @@ bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=
 charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.charlie})
 krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=farp, crates=cargoAccepts.krymsk})
 
+bravo:addRestrictedPlayerGroup({name='Bravo KA50', side=2})
+bravo:addRestrictedPlayerGroup({name='Bravo MI8', side=2})
+bravo:addRestrictedPlayerGroup({name='Bravo Gazelle Gun', side=2})
+bravo:addRestrictedPlayerGroup({name='Bravo Gazelle ATGM', side=2})
+bravo:addRestrictedPlayerGroup({name='Bravo Gazelle AA', side=2})
+bravo:addRestrictedPlayerGroup({name='Bravo MI24P', side=2})
+bravo:addRestrictedPlayerGroup({name='Bravo Huey', side=2})
 
 dispatch = {
 	krymsk = {
