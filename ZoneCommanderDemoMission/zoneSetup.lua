@@ -38,7 +38,7 @@ anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, cra
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=farp, crates=cargoAccepts.alpha})
 bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo})
 charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.charlie})
-krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=farp, crates=cargoAccepts.krymsk})
+krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk})
 
 bravo:addRestrictedPlayerGroup({name='Bravo KA50', side=2})
 bravo:addRestrictedPlayerGroup({name='Bravo MI8', side=2})
@@ -98,13 +98,6 @@ function respawnCargo()
 				for ix,vx in ipairs(v) do
 					if not StaticObject.getByName(vx) then
 						mist.respawnGroup(vx)
-					end
-				end
-			else 
-				for ix,vx in ipairs(v) do
-					local st = StaticObject.getByName(vx)
-					if st then
-						st:destroy()
 					end
 				end
 			end

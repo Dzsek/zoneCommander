@@ -120,8 +120,18 @@ do
 	end
 	
 	function BattleCommander:init()
+		local main =  missionCommands.addSubMenu('Zone Status')
+		local sub1
 		for i,v in ipairs(self.zones) do
 			v:init()
+			if i<11 then
+				missionCommands.addCommand(v.zone, main, v.displayStatus, v)
+			elseif i==11 then
+				sub1 = missionCommands.addSubMenu("More", main)
+				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
+			else
+				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
+			end
 		end
 		
 		for i,v in ipairs(self.connections) do
@@ -185,6 +195,43 @@ do
 	
 	function ZoneCommander:addRestrictedPlayerGroup(groupinfo)
 		table.insert(self.restrictedGroups, groupinfo)
+	end
+	
+	function ZoneCommander:displayStatus()
+		local upgrades = 0
+		local sidename = 'Neutral'
+		if self.side == 1 then
+			sidename = 'Red'
+			upgrades = #self.upgrades.red
+		elseif self.side == 2 then
+			sidename = 'Blue'
+			upgrades = #self.upgrades.blue
+		end
+		
+		local count = 0
+		if self.built then
+			count = #self.built
+		end
+		
+		local status = self.zone..' status\n Controlled by: '..sidename
+		if self.side ~= 0 then
+			status = status..'\n Upgrades: '..count..'/'..upgrades
+		end
+		
+		if self.built and count>0 then
+			status = status..'\n Groups:'
+			for i,v in pairs(self.built) do
+				local gr = Group.getByName(v)
+				if gr then
+					local grhealth = math.ceil((gr:getSize()/gr:getInitialSize())*100)
+					grhealth = math.min(grhealth,100)
+					grhealth = math.max(grhealth,1)
+					status = status..'\n  '..v..' '..grhealth..'%'
+				end
+			end
+		end
+		
+		trigger.action.outText(status, 15)
 	end
 
 	function ZoneCommander:init()
@@ -312,6 +359,34 @@ do
 		end
 	end
 	
+	function ZoneCommander:canRecieveSupply()
+		if self.side == 0 then 
+			return true
+		end
+		
+		local upgrades
+		if self.side == 1 then
+			upgrades = self.upgrades.red
+		elseif self.side == 2 then
+			upgrades = self.upgrades.blue
+		else
+			upgrades = {}
+		end
+			
+		if #self.built < #upgrades then
+			return true
+		end
+		
+		for i,v in pairs(self.built) do
+			local gr = Group.getByName(v)
+			if gr and gr:getSize() < gr:getInitialSize() then
+				return true
+			end
+		end
+		
+		return false
+	end
+	
 	function ZoneCommander:upgrade()
 		if self.side ~= 0 then
 			local upgrades
@@ -387,7 +462,7 @@ do
 				end
 			elseif self.mission=='supply' then
 				if tg.side == self.side or tg.side == 0 then
-					return true
+					return tg:canRecieveSupply()
 				end
 			end
 		end
