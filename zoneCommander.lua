@@ -119,7 +119,29 @@ do
 		return self.zones
 	end
 	
+	function BattleCommander:initializeRestrictedGroups()
+		for i,v in pairs(mist.DBs.groupsByName) do
+			if v.units[1].skill == 'Client' then
+				for i2,v2 in ipairs(self.zones) do
+					local zn = trigger.misc.getZone(v2.zone)
+					if zn and mist.utils.get2DDist(v.units[1].point, zn.point) < zn.radius then
+						local coa = 0
+						if v.coalition=='blue' then
+							coa = 2
+						elseif v.coalition=='red' then
+							coa = 1
+						end
+						
+						v2:addRestrictedPlayerGroup({name=i, side=coa})
+					end
+				end
+			end
+		end
+	end
+	
 	function BattleCommander:init()
+		self:initializeRestrictedGroups()
+	
 		local main =  missionCommands.addSubMenu('Zone Status')
 		local sub1
 		for i,v in ipairs(self.zones) do
@@ -145,24 +167,13 @@ do
 		
 		local ev = {}
 		function ev:onEvent(event)
-			if (event.id == 15 or event.id==20) and event.initiator and event.initiator:getCategory() == Object.Category.UNIT then
+			if (event.id==20) and event.initiator and (event.initiator:getCategory() == Unit.Category.AIRPLANE or event.initiator:getCategory() == Unit.Category.HELICOPTER)  then
 				local pname = event.initiator:getPlayerName()
 				if pname then
-					for index, zc in ipairs(BattleCommander:getZones()) do
-						if event.initiator:getCoalition() ~= zc.side then
-							local zn = trigger.misc.getZone(zc.zone)
-							local dst = mist.utils.get3DDist(event.initiator:getPosition().p,zn.point)
-							if dst<zn.radius then
-								local tside = 'enemy'
-								if zc.side==0 then
-									tside = 'neutral'
-								end
-								
-								trigger.action.outTextForGroup(event.initiator:getGroup():getID(), 'Can not spawn in '..tside..' zone '..zc.zone,5)
-								event.initiator:destroy()
-								break
-							end
-						end
+					local gr = event.initiator:getGroup()
+					if trigger.misc.getUserFlag(gr:getName())==1 then
+						trigger.action.outTextForGroup(gr:getID(), 'Can not spawn as '..gr:getName()..' in enemy/neutral zone',5)
+						event.initiator:destroy()
 					end
 				end
 			end
