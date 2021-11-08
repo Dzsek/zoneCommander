@@ -312,6 +312,26 @@ do
 		end
 	end
 	
+	function ZoneCommander:canRecieveSupply()
+		for i,v in pairs(self.built) do
+			local gr = Group.getByName(v)
+			if gr and gr:getSize() < gr:getInitialSize() then
+				return true
+			end
+		end
+		
+		local upgrades
+		if self.side == 1 then
+			upgrades = self.upgrades.red
+		elseif self.side == 2 then
+			upgrades = self.upgrades.blue
+		else
+			upgrades = {}
+		end
+			
+		return (#self.built < #upgrades)
+	end
+	
 	function ZoneCommander:upgrade()
 		if self.side ~= 0 then
 			local upgrades
@@ -387,7 +407,7 @@ do
 				end
 			elseif self.mission=='supply' then
 				if tg.side == self.side or tg.side == 0 then
-					return true
+					return tg:canRecieveSupply()
 				end
 			end
 		end
