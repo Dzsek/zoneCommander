@@ -66,14 +66,73 @@ do
 		
 		return false
 	end
+	
+	Utils.canAccessFS = true
+	function Utils.saveTable(filename, variablename, data)
+		if not Utils.canAccessFS then 
+			return
+		end
+		
+		if not io then
+			Utils.canAccessFS = false
+			trigger.action.outText('Persistance disabled', 30)
+			return
+		end
+	
+		local str = variablename..' = {}'
+		for i,v in pairs(data) do
+			str = str..'\n'..variablename..'[\''..i..'\'] = '..Utils.serializeValue(v)
+		end
+	
+		File = io.open(filename, "w")
+		File:write(str)
+		File:close()
+	end
+	
+	function Utils.serializeValue(value)
+		local res = ''
+		if type(value)=='number' or type(value)=='boolean' then
+			res = res..tostring(value)
+		elseif type(value)=='string' then
+			res = res..'\''..value..'\''
+		elseif type(value)=='table' then
+			res = res..'{ '
+			for i,v in pairs(value) do
+				res = res..' [\''..i..'\']='..Utils.serializeValue(v)..','
+			end
+			res = res:sub(1,-2)
+			res = res..' }'
+		end
+		return res
+	end
+	
+	function Utils.loadTable(filename)
+		if not Utils.canAccessFS then 
+			return
+		end
+		
+		if not lfs then
+			Utils.canAccessFS = false
+			trigger.action.outText('Persistance disabled', 30)
+			return
+		end
+		
+		if lfs.attributes(filename) then
+			dofile(filename)
+		end
+	end
 end
 
 GlobalSettings = {}
 do
 	GlobalSettings.blockedDespawnTime = 10*60
-	GlobalSettings.hangarRespawnTime = 2*60
-	GlobalSettings.deadRespawnTime = 15*60
 	GlobalSettings.landedDespawnTime = 1*60
+	
+	GlobalSettings.respawnTimers = {
+		supply = { dead=40*60, hangar=20*60},
+		patrol = { dead=30*60, hangar=2*60},
+		attack = { dead=30*60, hangar=2*60}
+	}
 end
 
 
@@ -87,6 +146,15 @@ do
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
+	end
+	
+	function BattleCommander:getStateTable()
+		local states = {}
+		for i,v in ipairs(self.zones) do
+			states[v.zone] = { side = v.side, level = #v.built }
+		end
+		
+		return states
 	end
 	
 	function BattleCommander:addZone(zone)
@@ -164,6 +232,7 @@ do
 		end
 		
 		mist.scheduleFunction(self.update, {self}, timer.getTime() + 1, 10)
+		mist.scheduleFunction(self.saveToDisk, {self}, timer.getTime() + 60, 60)
 		
 		local ev = {}
 		function ev:onEvent(event)
@@ -185,6 +254,24 @@ do
 	function BattleCommander:update()
 		for i,v in ipairs(self.zones) do
 			v:update()
+		end
+	end
+	
+	function BattleCommander:saveToDisk()
+		local statedata = self:getStateTable()
+		Utils.saveTable('zoneComPersistance.lua', 'zonePersistance', statedata)
+	end
+	
+	function BattleCommander:loadFromDisk()
+		Utils.loadTable('zoneComPersistance.lua')
+		if zonePersistance then
+			for i,v in pairs(zonePersistance) do
+				local zn = self:getZoneByName(i)
+				if zn then
+					zn.side = v.side
+					zn.level = v.level
+				end
+			end
 		end
 	end
 end
@@ -247,6 +334,10 @@ do
 
 	function ZoneCommander:init()
 		local zone = trigger.misc.getZone(self.zone)
+		if not zone then
+			trigger.action.outText('ERROR: zone ['..self.zone..'] can not be found in the mission', 60)
+		end
+		
 		local color = {0.7,0.7,0.7,0.3}
 		if self.side == 1 then
 			color = {1,0,0,0.3}
@@ -453,6 +544,10 @@ do
 		if gr then
 			self.side = gr:getCoalition()
 			gr:destroy()
+		else
+			if not zone then
+				trigger.action.outText('ERROR: group ['..self.name..'] can not be found in the mission', 60)
+			end
 		end
 	end
 	
@@ -495,7 +590,7 @@ do
 		end
 	
 		if self.state == 'inhangar' then
-			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.hangarRespawnTime then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].hangar then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'takeoff'
@@ -523,7 +618,7 @@ do
 				local tg = self.zoneCommander.battleCommander:getZoneByName(self.targetzone)
 				if tg and gr and Utils.someOfGroupInZone(gr, tg.zone) then
 					gr:destroy()
-					self.state = 'dead'
+					self.state = 'inhangar'
 					self.lastStateTime = timer.getAbsTime()
 					if tg.side == 0 then
 						tg:capture(self.side)
@@ -541,7 +636,7 @@ do
 				end
 			end
 		elseif self.state =='dead' then
-			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.deadRespawnTime then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].dead then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'takeoff'
