@@ -360,7 +360,7 @@ do
 			
 			for i,v in pairs(upgrades) do
 				if not self.built[i] and i<=self.level then
-					local gr = mist.cloneInZone(v, self.zone, nil, nil, {initTasks=true, validTerrain={'LAND'}})
+					local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true, validTerrain={'LAND'}})
 					self.built[i] = gr.name
 				end
 			end
@@ -503,7 +503,7 @@ do
 			if #self.built < #upgrades then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] then
-						local gr = mist.cloneInZone(v, self.zone, nil, nil, {initTasks=true, validTerrain={'LAND'}})
+						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true, validTerrain={'LAND'}})
 						self.built[i] = gr.name
 						trigger.action.outText(self.zone..' defenses upgraded', 5)
 						break
