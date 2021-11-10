@@ -125,13 +125,13 @@ end
 
 GlobalSettings = {}
 do
-	GlobalSettings.blockedDespawnTime = 10*60
+	GlobalSettings.blockedDespawnTime = 10*60 --used to despawn aircraft that are stuck taxiing for some reason
 	GlobalSettings.landedDespawnTime = 1*60
 	
 	GlobalSettings.respawnTimers = {
-		supply = { dead=40*60, hangar=20*60},
-		patrol = { dead=30*60, hangar=2*60},
-		attack = { dead=30*60, hangar=2*60}
+		supply = { dead=30*60, hangar=15*60},
+		patrol = { dead=25*60, hangar=2*60},
+		attack = { dead=25*60, hangar=2*60}
 	}
 end
 
