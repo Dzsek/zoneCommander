@@ -19,7 +19,7 @@ function allExcept(tbls, except)
 	return merge(tomerge)
 end
 
-ensureExists = { 'bravoFarpAmmo', 'bravoFarpFuel' }
+ensureExists = { 'bravoFarpAmmo', 'bravoFarpFuel', 'echoFarpAmmo', 'echoFarpFuel' }
 
 airfield = {
 	blue = { "bInfantry", "bArmor", "bSam", "bSam2", "bSam3"},
@@ -41,11 +41,17 @@ specialSAM = {
 	red = {"rInfantry", "rSamIR", "rInfantry", "rInfantry", "rSamBig" }
 }
 
+specialKrasnodar = {
+	blue = {"bInfantry", "bSamIR","bSam2", "bSam3", "bSamBig", "bSamFinal" },
+	red = {"rInfantry", "rSamIR", "rSam2", "rSam3", "rSamBig", "rSamFinal" }
+}
+
 cargoSpawns = {
 	["Anapa"] = {"c1","c2","c3"},
 	["Bravo"] = {"c6","c7"},
 	["Krymsk"] = {"c8","c9","c10"},
-	["Factory"] = {"c4","c5","c11"}
+	["Factory"] = {"c4","c5","c11"},
+	["Echo"] = {"c12","c13"}
 }
 
 cargoAccepts = {
@@ -53,20 +59,38 @@ cargoAccepts = {
 	bravo =  allExcept(cargoSpawns, 'Bravo'),
 	krymsk =  allExcept(cargoSpawns, 'Krymsk'),
 	factory =  allExcept(cargoSpawns, 'Factory'),
+	echo =  allExcept(cargoSpawns, 'Echo'),
 	general = allExcept(cargoSpawns)
 }
 
+flavor = {
+	anapa = 'Home base',
+	alpha='Defensive position next to the town of Natuhaevskaya',
+	bravo='FARP next to the town of Damanka.\nWill let us launch helicopter attacks from a bit closer to the action.',
+	charlie='Defensive position next to an old TV tower.\nWill provide allied air patrol to help capture Bravo',
+	krymsk='Airbase next to the city of Krymsk.\nCapturing it will provide us with valuable aircraft to use for our cause.',
+	radio='Radio atenna on the outskirts of Krymsk.\nIf we capture it, we can launch AWACS from the nearby airport\nto get some much needed intel on the enemy.',
+	delta='Defensive position out in the middle of nowhere',
+	factory='Weapon factory next to the town of Homskiy.\nWe can use it to resupply nearby bases.',
+	samsite='Home to an old SA-2 site.\nIf we capture it, we might be able to get some use out of it.',
+	foxtrot='Defensive position with a nice view of a lake',
+	echo='FARP next to the city of Krasnodar.\nCapturing it will let us operate our helicopters in the area.',
+	krasnodar='Airbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
+}
+
 bc = BattleCommander:new()
-anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa})
-alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=farp, crates=cargoAccepts.general})
-bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo})
-charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.general})
-krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk})
-radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=special, crates=cargoAccepts.general})
-delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=farp, crates=cargoAccepts.general})
-factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=special, crates=cargoAccepts.factory})
-samsite = ZoneCommander:new({zone='SAM Site', side=0, level=0, upgrades=specialSAM, crates=cargoAccepts.general})
-foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=farp, crates=cargoAccepts.general})
+anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
+alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.alpha})
+bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo, flavorText=flavor.bravo})
+charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.charlie})
+krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk, flavorText=flavor.krymsk})
+radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=special, crates=cargoAccepts.general, flavorText=flavor.radio})
+delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.delta})
+factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=special, crates=cargoAccepts.factory, flavorText=flavor.factory})
+samsite = ZoneCommander:new({zone='SAM Site', side=0, level=0, upgrades=specialSAM, crates=cargoAccepts.general, flavorText=flavor.samsite})
+foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.foxtrot})
+echo = ZoneCommander:new({zone='Echo', side=1, level=3, upgrades=farp, crates=cargoAccepts.echo, flavorText=flavor.echo})
+krasnodar = ZoneCommander:new({zone='Krasnodar', side=1, level=6, upgrades=specialKrasnodar, crates=cargoAccepts.general, flavorText=flavor.krasnodar})
 
 dispatch = {
 	krymsk = {
@@ -119,7 +143,31 @@ dispatch = {
 		GroupCommander:new({name='factory3', mission='supply', targetzone='Delta'}),
 		GroupCommander:new({name='factory4', mission='supply', targetzone='Delta'}),
 		GroupCommander:new({name='factory5', mission='supply', targetzone='Foxtrot'}),
-		GroupCommander:new({name='factory6', mission='supply', targetzone='Foxtrot'})
+		GroupCommander:new({name='factory6', mission='supply', targetzone='Foxtrot'}),
+		GroupCommander:new({name='factory7', mission='supply', targetzone='Echo'}),
+		GroupCommander:new({name='factory8', mission='supply', targetzone='Echo'})
+	},
+	echo={
+		GroupCommander:new({name='echo1', mission='supply', targetzone='SAM Site'}),
+		GroupCommander:new({name='echo2', mission='supply', targetzone='SAM Site'}),
+		GroupCommander:new({name='echo3', mission='attack', targetzone='Delta'}),
+		GroupCommander:new({name='echo4', mission='supply', targetzone='Delta'}),
+		GroupCommander:new({name='echo5', mission='supply', targetzone='Delta'}),
+		GroupCommander:new({name='echo6', mission='supply', targetzone='Factory'}),
+		GroupCommander:new({name='echo7', mission='supply', targetzone='Factory'}),
+		GroupCommander:new({name='echo8', mission='attack', targetzone='Factory'}),
+		GroupCommander:new({name='echo9', mission='supply', targetzone='Foxtrot'}),
+		GroupCommander:new({name='echo10', mission='supply', targetzone='Foxtrot'}),
+		GroupCommander:new({name='echo11', mission='attack', targetzone='Foxtrot'}),
+		GroupCommander:new({name='echo12', mission='supply', targetzone='Krasnodar'}),
+		GroupCommander:new({name='echo13', mission='supply', targetzone='Krasnodar'}),
+		GroupCommander:new({name='echo14', mission='supply', targetzone='Krasnodar'})
+	},
+	krasnodar={
+		GroupCommander:new({name='kras1', mission='supply', targetzone='Echo'}),
+		GroupCommander:new({name='kras2', mission='supply', targetzone='Echo'}),
+		GroupCommander:new({name='kras3', mission='supply', targetzone='Foxtrot'}),
+		GroupCommander:new({name='kras4', mission='supply', targetzone='Foxtrot'})
 	}
 }
 
@@ -129,6 +177,8 @@ bravo:addGroups(dispatch.bravo)
 krymsk:addGroups(dispatch.krymsk)
 charlie:addGroups(dispatch.charlie)
 factory:addGroups(dispatch.factory)
+echo:addGroups(dispatch.echo)
+krasnodar:addGroups(dispatch.krasnodar)
 
 bc:addZone(anapa)
 bc:addZone(alpha)
@@ -140,6 +190,8 @@ bc:addZone(delta)
 bc:addZone(factory)
 bc:addZone(samsite)
 bc:addZone(foxtrot)
+bc:addZone(echo)
+bc:addZone(krasnodar)
 
 bc:addConnection("Anapa","Alpha")
 bc:addConnection("Alpha","Bravo")
@@ -149,13 +201,12 @@ bc:addConnection("Anapa","Charlie")
 bc:addConnection("Krymsk","Radio Tower")
 bc:addConnection("Krymsk","Factory")
 bc:addConnection("Krymsk","Delta")
--- bc:addConnection("SAM Site","Farm")
 bc:addConnection("Factory","Delta")
 bc:addConnection("Factory","Foxtrot")
--- bc:addConnection("Factory","Echo")
--- bc:addConnection("Delta","Echo")
--- bc:addConnection("Foxtrot","Krasnodar")
--- bc:addConnection("Echo","Krasnodar")
+bc:addConnection("Factory","Echo")
+bc:addConnection("Delta","Echo")
+bc:addConnection("Foxtrot","Krasnodar")
+bc:addConnection("Echo","Krasnodar")
 bc:addConnection("Krymsk","SAM Site")
 
 bc:loadFromDisk()

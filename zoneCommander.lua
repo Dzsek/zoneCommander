@@ -208,8 +208,9 @@ do
 	end
 	
 	function BattleCommander:init()
+		trigger.action.outText('Initializing capture zones...', 5)
+		
 		self:initializeRestrictedGroups()
-	
 		local main =  missionCommands.addSubMenu('Zone Status')
 		local sub1
 		for i,v in ipairs(self.zones) do
@@ -327,6 +328,10 @@ do
 					status = status..'\n  '..v..' '..grhealth..'%'
 				end
 			end
+		end
+		
+		if self.flavorText then
+			status = status..'\n\n'..self.flavorText
 		end
 		
 		trigger.action.outText(status, 15)
