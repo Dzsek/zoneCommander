@@ -215,9 +215,9 @@ do
 		local sub1
 		for i,v in ipairs(self.zones) do
 			v:init()
-			if i<11 then
+			if i<10 then
 				missionCommands.addCommand(v.zone, main, v.displayStatus, v)
-			elseif i==11 then
+			elseif i==10 then
 				sub1 = missionCommands.addSubMenu("More", main)
 				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
 			else
@@ -519,7 +519,7 @@ do
 					local gr = Group.getByName(v)
 					if gr and gr:getSize() < gr:getInitialSize() then
 						mist.respawnGroup(v, true)
-						trigger.action.outText(self.zone..' resupplied group '..v, 5)
+						trigger.action.outText('Group '..v..' at '..self.zone..' was resupplied', 5)
 						break
 					end
 				end

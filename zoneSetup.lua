@@ -167,7 +167,16 @@ dispatch = {
 		GroupCommander:new({name='kras1', mission='supply', targetzone='Echo'}),
 		GroupCommander:new({name='kras2', mission='supply', targetzone='Echo'}),
 		GroupCommander:new({name='kras3', mission='supply', targetzone='Foxtrot'}),
-		GroupCommander:new({name='kras4', mission='supply', targetzone='Foxtrot'})
+		GroupCommander:new({name='kras4', mission='supply', targetzone='Foxtrot'}),
+		GroupCommander:new({name='kras5', mission='attack', targetzone='SAM Site'}),
+		GroupCommander:new({name='kras6', mission='attack', targetzone='Krymsk'}),
+		GroupCommander:new({name='kras7', mission='attack', targetzone='Radio Tower'}),
+		GroupCommander:new({name='kras8', mission='attack', targetzone='Factory'}),
+		GroupCommander:new({name='kras9', mission='attack', targetzone='Echo'}),
+		GroupCommander:new({name='kras10', mission='attack', targetzone='Foxtrot'}),
+		GroupCommander:new({name='kras11', mission='patrol', targetzone='Echo'}),
+		GroupCommander:new({name='kras12', mission='patrol', targetzone='Delta'}),
+		GroupCommander:new({name='kras13', mission='patrol', targetzone='Factory'})
 	}
 }
 
@@ -207,6 +216,7 @@ bc:addConnection("Factory","Echo")
 bc:addConnection("Delta","Echo")
 bc:addConnection("Foxtrot","Krasnodar")
 bc:addConnection("Echo","Krasnodar")
+bc:addConnection("Echo","SAM Site")
 bc:addConnection("Krymsk","SAM Site")
 
 bc:loadFromDisk()
