@@ -129,9 +129,9 @@ do
 	GlobalSettings.landedDespawnTime = 1*60
 	
 	GlobalSettings.respawnTimers = {
-		supply = { dead=30*60, hangar=15*60},
-		patrol = { dead=25*60, hangar=2*60},
-		attack = { dead=25*60, hangar=2*60}
+		supply = { dead=40*60, hangar=25*60},
+		patrol = { dead=40*60, hangar=2*60},
+		attack = { dead=40*60, hangar=2*60}
 	}
 end
 
@@ -479,16 +479,16 @@ do
 		else
 			upgrades = {}
 		end
-			
-		if #self.built < #upgrades then
-			return true
-		end
 		
 		for i,v in pairs(self.built) do
 			local gr = Group.getByName(v)
 			if gr and gr:getSize() < gr:getInitialSize() then
 				return true
 			end
+		end
+			
+		if #self.built < #upgrades then
+			return true
 		end
 		
 		return false
@@ -504,8 +504,19 @@ do
 			else
 				upgrades = {}
 			end
+			
+			local complete = false
+			for i,v in pairs(self.built) do
+				local gr = Group.getByName(v)
+				if gr and gr:getSize() < gr:getInitialSize() then
+					mist.respawnGroup(v, true)
+					trigger.action.outText('Group '..v..' at '..self.zone..' was repaired', 5)
+					complete = true
+					break
+				end
+			end
 				
-			if #self.built < #upgrades then
+			if not complete and #self.built < #upgrades then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] then
 						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true, validTerrain={'LAND'}})
@@ -513,16 +524,7 @@ do
 						trigger.action.outText(self.zone..' defenses upgraded', 5)
 						break
 					end
-				end
-			else
-				for i,v in pairs(self.built) do
-					local gr = Group.getByName(v)
-					if gr and gr:getSize() < gr:getInitialSize() then
-						mist.respawnGroup(v, true)
-						trigger.action.outText('Group '..v..' at '..self.zone..' was resupplied', 5)
-						break
-					end
-				end
+				end			
 			end
 		end
 	end

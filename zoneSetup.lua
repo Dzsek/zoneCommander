@@ -131,7 +131,6 @@ dispatch = {
 		GroupCommander:new({name='anapa1', mission='supply', targetzone='Alpha'}),
 		GroupCommander:new({name='anapa3', mission='supply', targetzone='Bravo'}),
 		GroupCommander:new({name='anapa2', mission='supply', targetzone='Charlie'}),
-		GroupCommander:new({name='anapa4', mission='supply', targetzone='Krymsk'}),
 		GroupCommander:new({name='anapa5', mission='patrol', targetzone='Bravo'})
 	},
 	charlie={
@@ -244,7 +243,8 @@ function respawnStatics()
 	end
 	
 	for i,v in pairs(ensureExists) do
-		if not StaticObject.getByName(v) then
+		local stobj = StaticObject.getByName(v)
+		if not stobj or stobj:getLife()<1 then
 			mist.respawnGroup(v)
 		end
 	end
