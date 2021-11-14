@@ -208,7 +208,6 @@ do
 	end
 	
 	function BattleCommander:init()
-		trigger.action.outText('Initializing capture zones...', 5)
 		
 		self:initializeRestrictedGroups()
 		local main =  missionCommands.addSubMenu('Zone Status')
