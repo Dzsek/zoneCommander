@@ -19,7 +19,6 @@ function allExcept(tbls, except)
 	return merge(tomerge)
 end
 
-ensureExists = { 'bravoFarpAmmo', 'bravoFarpFuel', 'echoFarpAmmo', 'echoFarpFuel' }
 
 airfield = {
 	blue = { "bInfantry", "bArmor", "bSam", "bSam2", "bSam3"},
@@ -52,6 +51,11 @@ cargoSpawns = {
 	["Krymsk"] = {"c8","c9","c10"},
 	["Factory"] = {"c4","c5","c11"},
 	["Echo"] = {"c12","c13"}
+}
+
+farpSupply = {
+	["Bravo"] = {"bravoFuelAndAmmo"},
+	["Echo"] = {"echoFuelAndAmmo"}
 }
 
 cargoAccepts = {
@@ -242,10 +246,26 @@ function respawnStatics()
 		end
 	end
 	
-	for i,v in pairs(ensureExists) do
-		local stobj = StaticObject.getByName(v)
-		if not stobj or stobj:getLife()<1 then
-			mist.respawnGroup(v)
+	for i,v in pairs(farpSupply) do
+		local farp = bc:getZoneByName(i)
+		if farp then
+			if farp.side==2 then
+				for ix,vx in ipairs(v) do
+					local gr = Group.getByName(vx)
+					if not gr then
+						mist.respawnGroup(vx)
+					elseif gr:getSize() < gr:getInitialSize() then
+						mist.respawnGroup(vx)
+					end
+				end
+			else
+				for ix,vx in ipairs(v) do
+					local cr = Group.getByName(vx)
+					if cr then
+						cr:destroy()
+					end
+				end
+			end
 		end
 	end
 end
