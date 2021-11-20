@@ -151,7 +151,7 @@ do
 	function BattleCommander:getStateTable()
 		local states = {}
 		for i,v in ipairs(self.zones) do
-			states[v.zone] = { side = v.side, level = #v.built }
+			states[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedImportantBuildings(), active = v.active }
 		end
 		
 		return states
@@ -270,6 +270,19 @@ do
 				if zn then
 					zn.side = v.side
 					zn.level = v.level
+					zn.active = v.active
+					
+					if not zn.active then
+						zn.side = 0
+						zn.level = 0
+					end
+					
+					for i2,v2 in ipairs(zn.destroyed) do
+						local st = StaticObject.getByName(v2)
+						if st then
+							st:destroy()
+						end
+					end
 				end
 			end
 		end
@@ -286,6 +299,8 @@ do
 		obj.battleCommander = {}
 		obj.groups = {}
 		obj.restrictedGroups = {}
+		obj.importantBuildings = {}
+		obj.active = true
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
@@ -293,6 +308,38 @@ do
 	
 	function ZoneCommander:addRestrictedPlayerGroup(groupinfo)
 		table.insert(self.restrictedGroups, groupinfo)
+	end
+	
+	--if all important buildings are lost in a zone, that zone turns neutral and can never be recaptured
+	function ZoneCommander:addImportantBuilding(staticname)
+		table.insert(self.importantBuildings, staticname)
+	end
+	
+	function ZoneCommander:getDestroyedImportantBuildings()
+		local destroyed = {}
+		for i,v in ipairs(self.importantBuildings) do
+			local st = StaticObject.getByName(v)
+			if not st or st:getLife()<1 then
+				table.insert(destroyed, v)
+			end
+		end
+		
+		return destroyed
+	end
+	
+	function ZoneCommander:disableZone()
+		if self.active then
+			for i,v in pairs(self.built) do
+				local gr = Group.getByName(v)
+				if gr and gr:getSize() == 0 then
+					gr:destroy()
+				end
+				
+				self.built[i] = nil	
+			end
+			
+			self.active = false
+		end
 	end
 	
 	function ZoneCommander:displayStatus()
@@ -379,7 +426,32 @@ do
 		end
 	end
 	
+	function ZoneCommander:checkImportantBuildings()
+		if not self.active then
+			return
+		end
+		
+		local stillactive = false
+		for i,v in ipairs(self.importantBuildings) do
+			local st = StaticObject.getByName(v)
+			if st and st:getLife()>1 then
+				stillactive = true
+			end
+			
+			--clean up statics that still exist for some reason even though they're dead
+			if st and st:getLife()<1 then
+				st:destroy()
+			end
+		end
+		
+		if not stillactive then
+			self:disableZone()
+		end
+	end
+	
 	function ZoneCommander:update()
+		self:checkImportantBuildings()
+	
 		for i,v in pairs(self.built) do
 			local gr = Group.getByName(v)
 			if gr and gr:getSize() == 0 then
@@ -444,7 +516,7 @@ do
 	end
 	
 	function ZoneCommander:capture(newside)
-		if self.side == 0 and newside ~= 0 then
+		if self.active and self.side == 0 and newside ~= 0 then
 			self.side = newside
 			
 			local sidename = ''
@@ -466,6 +538,10 @@ do
 	end
 	
 	function ZoneCommander:canRecieveSupply()
+		if not self.active then
+			return false
+		end
+	
 		if self.side == 0 then 
 			return true
 		end
@@ -494,7 +570,7 @@ do
 	end
 	
 	function ZoneCommander:upgrade()
-		if self.side ~= 0 then
+		if self.active and self.side ~= 0 then
 			local upgrades
 			if self.side == 1 then
 				upgrades = self.upgrades.red
