@@ -151,7 +151,7 @@ do
 	function BattleCommander:getStateTable()
 		local states = {}
 		for i,v in ipairs(self.zones) do
-			states[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedImportantBuildings(), active = v.active }
+			states[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedCriticalObjects(), active = v.active }
 		end
 		
 		return states
@@ -270,18 +270,18 @@ do
 				if zn then
 					zn.side = v.side
 					zn.level = v.level
-					zn.active = v.active
+					
+					if type(v.active)=='boolean' then
+						zn.active = v.active
+					end
 					
 					if not zn.active then
 						zn.side = 0
 						zn.level = 0
 					end
 					
-					for i2,v2 in ipairs(zn.destroyed) do
-						local st = StaticObject.getByName(v2)
-						if st then
-							st:destroy()
-						end
+					if v.destroyed then
+						zn.destroyOnInit = v.destroyed
 					end
 				end
 			end
@@ -299,8 +299,9 @@ do
 		obj.battleCommander = {}
 		obj.groups = {}
 		obj.restrictedGroups = {}
-		obj.importantBuildings = {}
+		obj.criticalObjects = {}
 		obj.active = true
+		obj.destroyOnInit = {}
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
@@ -310,14 +311,14 @@ do
 		table.insert(self.restrictedGroups, groupinfo)
 	end
 	
-	--if all important buildings are lost in a zone, that zone turns neutral and can never be recaptured
-	function ZoneCommander:addImportantBuilding(staticname)
-		table.insert(self.importantBuildings, staticname)
+	--if all critical onjects are lost in a zone, that zone turns neutral and can never be recaptured
+	function ZoneCommander:addCriticalObject(staticname)
+		table.insert(self.criticalObjects, staticname)
 	end
 	
-	function ZoneCommander:getDestroyedImportantBuildings()
+	function ZoneCommander:getDestroyedCriticalObjects()
 		local destroyed = {}
-		for i,v in ipairs(self.importantBuildings) do
+		for i,v in ipairs(self.criticalObjects) do
 			local st = StaticObject.getByName(v)
 			if not st or st:getLife()<1 then
 				table.insert(destroyed, v)
@@ -338,7 +339,11 @@ do
 				self.built[i] = nil	
 			end
 			
+			self.side = 0
 			self.active = false
+			trigger.action.outText(self.zone..' has been destroyed', 5)
+			trigger.action.setMarkupColorFill(self.index, {0.1,0.1,0.1,0.3})
+			trigger.action.setMarkupColor(self.index, {0.1,0.1,0.1,0.3})
 		end
 	end
 	
@@ -353,12 +358,17 @@ do
 			upgrades = #self.upgrades.blue
 		end
 		
+		if not self.active then
+			sidename = 'None'
+		end
+		
 		local count = 0
 		if self.built then
 			count = #self.built
 		end
 		
 		local status = self.zone..' status\n Controlled by: '..sidename
+		
 		if self.side ~= 0 then
 			status = status..'\n Upgrades: '..count..'/'..upgrades
 		end
@@ -380,10 +390,25 @@ do
 			status = status..'\n\n'..self.flavorText
 		end
 		
+		if not self.active then
+			status = status..'\n\n WARNING: This zone has been irreparably damaged and is no longer of any use'
+		end
+		
 		trigger.action.outText(status, 15)
 	end
 
 	function ZoneCommander:init()
+		if self.destroyOnInit then
+			for i,v in pairs(self.destroyOnInit) do
+				local st = StaticObject.getByName(v)
+				if st then
+					--trigger.action.explosion(st:getPosition().p, st:getLife())
+					st:destroy()
+				end
+			end
+		end
+	
+	
 		local zone = trigger.misc.getZone(self.zone)
 		if not zone then
 			trigger.action.outText('ERROR: zone ['..self.zone..'] can not be found in the mission', 60)
@@ -394,6 +419,10 @@ do
 			color = {1,0,0,0.3}
 		elseif self.side == 2 then
 			color = {0,0,1,0.3}
+		end
+		
+		if not self.active then
+			color = {0.1,0.1,0.1,0.3}
 		end
 		
 		trigger.action.circleToAll(-1,self.index,zone.point, zone.radius,color,color,1)
@@ -426,22 +455,26 @@ do
 		end
 	end
 	
-	function ZoneCommander:checkImportantBuildings()
+	function ZoneCommander:checkCriticalObjects()
 		if not self.active then
 			return
 		end
 		
 		local stillactive = false
-		for i,v in ipairs(self.importantBuildings) do
-			local st = StaticObject.getByName(v)
-			if st and st:getLife()>1 then
-				stillactive = true
+		if self.criticalObjects and #self.criticalObjects > 0 then
+			for i,v in ipairs(self.criticalObjects) do
+				local st = StaticObject.getByName(v)
+				if st and st:getLife()>1 then
+					stillactive = true
+				end
+				
+				--clean up statics that still exist for some reason even though they're dead
+				--if st and st:getLife()<1 then
+					--st:destroy()
+				--end
 			end
-			
-			--clean up statics that still exist for some reason even though they're dead
-			if st and st:getLife()<1 then
-				st:destroy()
-			end
+		else
+			stillactive = true
 		end
 		
 		if not stillactive then
@@ -450,7 +483,7 @@ do
 	end
 	
 	function ZoneCommander:update()
-		self:checkImportantBuildings()
+		self:checkCriticalObjects()
 	
 		for i,v in pairs(self.built) do
 			local gr = Group.getByName(v)
@@ -472,13 +505,14 @@ do
 			end
 		end
 		
-		if empty and self.side ~= 0 then
+		if empty and self.side ~= 0 and self.active then
 			self.side = 0
+			
 			trigger.action.outText(self.zone..' is now neutral ', 5)
 			trigger.action.setMarkupColorFill(self.index, {0.7,0.7,0.7,0.3})
 			trigger.action.setMarkupColor(self.index, {0.7,0.7,0.7,0.3})
 		end
-		
+
 		for i,v in ipairs(self.groups) do
 			v:update()
 		end
@@ -534,6 +568,10 @@ do
 			trigger.action.setMarkupColor(self.index, color)
 			
 			self:upgrade()
+		end
+		
+		if not self.active then
+			trigger.action.outText(self.zone..' has been destroyed and can no longer be captured', 5)
 		end
 	end
 	
@@ -602,6 +640,10 @@ do
 				end			
 			end
 		end
+		
+		if not self.active then
+			trigger.action.outText(self.zone..' has been destroyed and can no longer be upgraded', 5)
+		end
 	end
 end
 
@@ -634,12 +676,16 @@ do
 	end
 	
 	function GroupCommander:shouldSpawn()
+		if not self.zoneCommander.active then
+			return false
+		end
+		
 		if self.side ~= self.zoneCommander.side then
 			return false
 		end
 		
 		local tg = self.zoneCommander.battleCommander:getZoneByName(self.targetzone)
-		if tg then
+		if tg and tg.active then
 			if self.mission=='patrol' then
 				if tg.side == self.side then
 					return true

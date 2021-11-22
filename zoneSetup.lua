@@ -96,6 +96,11 @@ foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=farp, cra
 echo = ZoneCommander:new({zone='Echo', side=1, level=3, upgrades=farp, crates=cargoAccepts.echo, flavorText=flavor.echo})
 krasnodar = ZoneCommander:new({zone='Krasnodar', side=1, level=6, upgrades=specialKrasnodar, crates=cargoAccepts.general, flavorText=flavor.krasnodar})
 
+radio:addCriticalObject('RadioTower')
+samsite:addCriticalObject('CommandCenter')
+factory:addCriticalObject('FactoryBuilding1')
+factory:addCriticalObject('FactoryBuilding2')
+
 dispatch = {
 	krymsk = {
 		GroupCommander:new({name='krym1', mission='supply', targetzone='Bravo'}),
