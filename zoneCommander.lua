@@ -145,6 +145,7 @@ do
 	BattleCommander.connections = {}
 	BattleCommander.accounts = { [1]=0, [2]=0} -- 1 = red coalition, 2 = blue coalition
 	BattleCommander.shops = {[1]={}, [2]={}}
+	BattleCommander.shopItems = {}
 	
 	function BattleCommander:new()
 		local obj = {}
@@ -154,20 +155,25 @@ do
 	end
 	
 	-- shops and currency functions
-	function BattleCommander:setStartupBugets(redbuget, bluebuget)
-		self.accounts[1] = redbuget
-		self.accounts[2] = bluebuget
+	function BattleCommander:registerShopItem(id, name, cost, action)
+		self.shopItems[id] = { name=name, cost=cost, action=action }
 	end
 	
-	function BattleCommander:addShopItem(coalition, name, stock, cost, action)
-		local item = self.shops[coalition][name]
+	function BattleCommander:addShopItem(coalition, id, ammount)
+		local item = self.shopItems[id]
+		local sitem = self.shops[coalition][id]
+		
 		if item then
-			if item.stock ~= -1 then
-				item.stock = item.stock + stock
+			if sitem then
+				if ammount == -1 then
+					sitem.stock = -1
+				else
+					sitem.stock = sitem.stock+ammount
+				end
+			else
+				self.shops[coalition][id] = { name=item.name, cost=item.cost, stock=ammount }
+				self:refreshShopMenuForCoalition(coalition)
 			end
-		else
-			self.shops[coalition][name] = { name=name, cost=cost, stock=stock, action=action }
-			self:refreshShopMenuForCoalition(coalition)
 		end
 	end
 	
@@ -188,8 +194,8 @@ do
 		trigger.action.outTextForCoalition(coalition, text, 10)
 	end
 	
-	function BattleCommander:buyShopItem(coalition, name)
-		local item = self.shops[coalition][name]
+	function BattleCommander:buyShopItem(coalition, id)
+		local item = self.shops[coalition][id]
 		if item then
 			if self.accounts[coalition] >= item.cost then
 				if item.stock == -1 or item.stock > 0 then
@@ -198,13 +204,19 @@ do
 						item.stock = item.stock - 1
 					end
 					
-					if type(item.action)=='function' then
-						item:action()
+					if item.stock == 0 then
+						self.shops[coalition][id] = nil
+						self:refreshShopMenuForCoalition(coalition)
 					end
 					
+					trigger.action.outTextForCoalition(coalition, 'Bought ['..item.name..'] for '..item.cost..'\n'..self.accounts[coalition]..' credits remaining',5)
 					if item.stock == 0 then
-						self.shops[coalition][name] = nil
-						self:refreshShopMenuForCoalition(coalition)
+						trigger.action.outTextForCoalition(coalition, '['..item.name..'] went out of stock',5)
+					end
+					
+					local sitem = self.shopItems[id]
+					if type(sitem.action)=='function' then
+						sitem:action()
 					end
 				else
 					trigger.action.outTextForCoalition(coalition,'Not available', 5)
@@ -219,19 +231,19 @@ do
 		missionCommands.removeItemForCoalition(coalition, {[1]='Support'})
 		
 		local shopmenu = missionCommands.addSubMenuForCoalition(coalition, 'Support')
-		missionCommands.addCommandForCoalition(coalition, 'Status Report', shopmenu, self.printShopStatus, self, coalition)
+		missionCommands.addCommandForCoalition(coalition, 'Inventory', shopmenu, self.printShopStatus, self, coalition)
 		local purchasemenu = missionCommands.addSubMenuForCoalition(coalition, 'Purchase', shopmenu)
 		local sub1
 		local count = 0
 		for i,v in pairs(self.shops[coalition]) do
 			count = count +1
 			if count<10 then
-				missionCommands.addCommandForCoalition(coalition, i, purchasemenu, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, v.name, purchasemenu, self.buyShopItem, self, coalition, i)
 			elseif count==10 then
 				sub1 = missionCommands.addSubMenuForCoalition("More", purchasemenu)
-				missionCommands.addCommandForCoalition(coalition, i, sub1, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, v.name, sub1, self.buyShopItem, self, coalition, i)
 			else
-				missionCommands.addCommandForCoalition(coalition, i, sub1, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, v.name, sub1, self.buyShopItem, self, coalition, i)
 			end
 		end
 	end
@@ -245,6 +257,7 @@ do
 		end
 		
 		states.accounts = self.accounts
+		states.shops = self.shops
 		
 		return states
 	end
@@ -323,6 +336,10 @@ do
 			trigger.action.lineToAll(-1, 1000+i, from.point, to.point, {1,1,1,0.5}, 2)
 		end
 		
+		
+		self:refreshShopMenuForCoalition(1)
+		self:refreshShopMenuForCoalition(2)
+		
 		mist.scheduleFunction(self.update, {self}, timer.getTime() + 1, 10)
 		mist.scheduleFunction(self.saveToDisk, {self}, timer.getTime() + 60, 60)
 		
@@ -383,6 +400,10 @@ do
 			if zonePersistance.accounts then
 				self.accounts = zonePersistance.accounts
 			end
+			
+			if zonePersistance.shops then
+				self.shops = zonePersistance.shops
+			end
 		end
 	end
 end
@@ -400,6 +421,7 @@ do
 		obj.criticalObjects = {}
 		obj.active = true
 		obj.destroyOnInit = {}
+		obj.triggers = {}
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
@@ -426,6 +448,26 @@ do
 		return destroyed
 	end
 	
+	--zone triggers 
+	-- trigger types= captured, upgraded, repaired, lost, destroyed
+	function ZoneCommander:registerTrigger(eventType, action)
+		table.insert(self.triggers, {eventType = eventType, action = action})
+	end
+	
+	--return true from eventhandler to end event after run
+	function ZoneCommander:runTriggers(eventType)
+		for i,v in ipairs(self.triggers) do
+			if v.eventType == eventType then
+				local endme = v.action(eventType, self)
+				
+				if endme then
+					self.triggers[i] = nil
+				end
+			end
+		end
+	end
+	--end zone triggers
+	
 	function ZoneCommander:disableZone()
 		if self.active then
 			for i,v in pairs(self.built) do
@@ -442,6 +484,7 @@ do
 			trigger.action.outText(self.zone..' has been destroyed', 5)
 			trigger.action.setMarkupColorFill(self.index, {0.1,0.1,0.1,0.3})
 			trigger.action.setMarkupColor(self.index, {0.1,0.1,0.1,0.3})
+			self:runTriggers('destroyed')
 		end
 	end
 	
@@ -609,6 +652,7 @@ do
 			trigger.action.outText(self.zone..' is now neutral ', 5)
 			trigger.action.setMarkupColorFill(self.index, {0.7,0.7,0.7,0.3})
 			trigger.action.setMarkupColor(self.index, {0.7,0.7,0.7,0.3})
+			self:runTriggers('lost')
 		end
 
 		for i,v in ipairs(self.groups) do
@@ -668,7 +712,7 @@ do
 			trigger.action.outText(self.zone..' captured by '..sidename, 5)
 			trigger.action.setMarkupColorFill(self.index, color)
 			trigger.action.setMarkupColor(self.index, color)
-			
+			self:runTriggers('captured')
 			self:upgrade()
 		end
 		
@@ -726,6 +770,7 @@ do
 				if gr and gr:getSize() < gr:getInitialSize() then
 					mist.respawnGroup(v, true)
 					trigger.action.outText('Group '..v..' at '..self.zone..' was repaired', 5)
+					self:runTriggers('repaired')
 					complete = true
 					break
 				end
@@ -737,6 +782,7 @@ do
 						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true, validTerrain={'LAND'}})
 						self.built[i] = gr.name
 						trigger.action.outText(self.zone..' defenses upgraded', 5)
+						self:runTriggers('upgraded')
 						break
 					end
 				end			

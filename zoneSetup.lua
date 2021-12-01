@@ -228,13 +228,18 @@ bc:addConnection("Echo","SAM Site")
 bc:addConnection("Krymsk","SAM Site")
 
 
-bc:setStartupBugets(500,600)
+alpha:registerTrigger('captured', function (event, sender) trigger.action.outText(sender.zone..' '..event,5) end)
 
-bc:loadFromDisk()
+bc:addFunds(1,500)
+bc:addFunds(2,600)
+bc:registerShopItem('ti1', 'Test item 1', 200, function(sender) trigger.action.outText(sender.name, 5) end)
+bc:registerShopItem('ti2', 'Test item 2', 10, function(sender) trigger.action.outText(sender.name..' xxx', 5) end)
+
+bc:addShopItem(2, 'ti1', 2)
+bc:addShopItem(2, 'ti2', -1)
+
+bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()
-
-bc:addShopItem(2, 'Test item 1', 2, 200, function(sender) trigger.action.outText(sender.name, 5) end)
-bc:addShopItem(2, 'Test item 2', -1, 10, function(sender) trigger.action.outText(sender.name..' xxx', 5) end)
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do
