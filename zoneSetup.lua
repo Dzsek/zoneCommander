@@ -228,15 +228,20 @@ bc:addConnection("Echo","SAM Site")
 bc:addConnection("Krymsk","SAM Site")
 
 
-alpha:registerTrigger('captured', function (event, sender) trigger.action.outText(sender.zone..' '..event,5) end)
+--alpha:registerTrigger('captured', function (event, sender) trigger.action.outText(sender.zone..' '..event,5) end)
 
-bc:addFunds(1,500)
-bc:addFunds(2,600)
-bc:registerShopItem('ti1', 'Test item 1', 200, function(sender) trigger.action.outText(sender.name, 5) end)
-bc:registerShopItem('ti2', 'Test item 2', 10, function(sender) trigger.action.outText(sender.name..' xxx', 5) end)
+bc:addFunds(1,0)
+bc:addFunds(2,1000)
 
-bc:addShopItem(2, 'ti1', 2)
-bc:addShopItem(2, 'ti2', -1)
+Group.getByName('sead1'):destroy()
+bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 200, function(sender) 
+	local gr = Group.getByName('sead1')
+	if gr and gr:getSize()>0 then 
+		return 'SEAD mission still in progress'
+	end
+	mist.respawnGroup('sead1', true)
+end)
+bc:addShopItem(2, 'sead1', -1)
 
 bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()

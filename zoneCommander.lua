@@ -185,7 +185,7 @@ do
 		local text = 'Credits: '..self.accounts[coalition]..'\n'
 		
 		for i,v in pairs(self.shops[coalition]) do
-			text = text..'\n[Cost: '..v.cost..'] '..i
+			text = text..'\n[Cost: '..v.cost..'] '..v.name
 			if v.stock ~= -1 then
 				text = text..' [Available: '..v.stock..']'
 			end
@@ -199,24 +199,33 @@ do
 		if item then
 			if self.accounts[coalition] >= item.cost then
 				if item.stock == -1 or item.stock > 0 then
-					self.accounts[coalition] = self.accounts[coalition] - item.cost
-					if item.stock > 0 then
-						item.stock = item.stock - 1
-					end
-					
-					if item.stock == 0 then
-						self.shops[coalition][id] = nil
-						self:refreshShopMenuForCoalition(coalition)
-					end
-					
-					trigger.action.outTextForCoalition(coalition, 'Bought ['..item.name..'] for '..item.cost..'\n'..self.accounts[coalition]..' credits remaining',5)
-					if item.stock == 0 then
-						trigger.action.outTextForCoalition(coalition, '['..item.name..'] went out of stock',5)
-					end
-					
+					local success = true
 					local sitem = self.shopItems[id]
 					if type(sitem.action)=='function' then
-						sitem:action()
+						success = sitem:action()
+					end
+					
+					if success == true or success == nil then
+						self.accounts[coalition] = self.accounts[coalition] - item.cost
+						if item.stock > 0 then
+							item.stock = item.stock - 1
+						end
+						
+						if item.stock == 0 then
+							self.shops[coalition][id] = nil
+							self:refreshShopMenuForCoalition(coalition)
+						end
+						
+						trigger.action.outTextForCoalition(coalition, 'Bought ['..item.name..'] for '..item.cost..'\n'..self.accounts[coalition]..' credits remaining',5)
+						if item.stock == 0 then
+							trigger.action.outTextForCoalition(coalition, '['..item.name..'] went out of stock',5)
+						end
+					else
+						if type(success) == 'string' then
+							trigger.action.outTextForCoalition(coalition, success,5)
+						else
+							trigger.action.outTextForCoalition(coalition, 'Not available at the current time',5)
+						end
 					end
 				else
 					trigger.action.outTextForCoalition(coalition,'Not available', 5)
