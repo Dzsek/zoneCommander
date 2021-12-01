@@ -98,7 +98,11 @@ do
 		elseif type(value)=='table' then
 			res = res..'{ '
 			for i,v in pairs(value) do
-				res = res..' [\''..i..'\']='..Utils.serializeValue(v)..','
+				if type(i)=='number' then
+					res = res..'['..i..']='..Utils.serializeValue(v)..','
+				else
+					res = res..'[\''..i..'\']='..Utils.serializeValue(v)..','
+				end
 			end
 			res = res:sub(1,-2)
 			res = res..' }'
@@ -135,11 +139,12 @@ do
 	}
 end
 
-
 BattleCommander = {}
 do
 	BattleCommander.zones = {}
 	BattleCommander.connections = {}
+	BattleCommander.accounts = { [1]=0, [2]=0} -- 1 = red coalition, 2 = blue coalition
+	BattleCommander.shops = {[1]={}, [2]={}}
 	
 	function BattleCommander:new()
 		local obj = {}
@@ -148,11 +153,98 @@ do
 		return obj
 	end
 	
-	function BattleCommander:getStateTable()
-		local states = {}
-		for i,v in ipairs(self.zones) do
-			states[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedCriticalObjects(), active = v.active }
+	-- shops and currency functions
+	function BattleCommander:setStartupBugets(redbuget, bluebuget)
+		self.accounts[1] = redbuget
+		self.accounts[2] = bluebuget
+	end
+	
+	function BattleCommander:addShopItem(coalition, name, stock, cost, action)
+		local item = self.shops[coalition][name]
+		if item then
+			if item.stock ~= -1 then
+				item.stock = item.stock + stock
+			end
+		else
+			self.shops[coalition][name] = { name=name, cost=cost, stock=stock, action=action }
+			self:refreshShopMenuForCoalition(coalition)
 		end
+	end
+	
+	function BattleCommander:addFunds(coalition, ammount)
+		self.accounts[coalition] = self.accounts[coalition] + ammount
+	end
+	
+	function BattleCommander:printShopStatus(coalition)
+		local text = 'Credits: '..self.accounts[coalition]..'\n'
+		
+		for i,v in pairs(self.shops[coalition]) do
+			text = text..'\n[Cost: '..v.cost..'] '..i
+			if v.stock ~= -1 then
+				text = text..' [Available: '..v.stock..']'
+			end
+		end
+		
+		trigger.action.outTextForCoalition(coalition, text, 10)
+	end
+	
+	function BattleCommander:buyShopItem(coalition, name)
+		local item = self.shops[coalition][name]
+		if item then
+			if self.accounts[coalition] >= item.cost then
+				if item.stock == -1 or item.stock > 0 then
+					self.accounts[coalition] = self.accounts[coalition] - item.cost
+					if item.stock > 0 then
+						item.stock = item.stock - 1
+					end
+					
+					if type(item.action)=='function' then
+						item:action()
+					end
+					
+					if item.stock == 0 then
+						self.shops[coalition][name] = nil
+						self:refreshShopMenuForCoalition(coalition)
+					end
+				else
+					trigger.action.outTextForCoalition(coalition,'Not available', 5)
+				end
+			else
+				trigger.action.outTextForCoalition(coalition,'Can not afford ['..item.name..']', 5)
+			end
+		end
+	end
+	
+	function BattleCommander:refreshShopMenuForCoalition(coalition)
+		missionCommands.removeItemForCoalition(coalition, {[1]='Support'})
+		
+		local shopmenu = missionCommands.addSubMenuForCoalition(coalition, 'Support')
+		missionCommands.addCommandForCoalition(coalition, 'Status Report', shopmenu, self.printShopStatus, self, coalition)
+		local purchasemenu = missionCommands.addSubMenuForCoalition(coalition, 'Purchase', shopmenu)
+		local sub1
+		local count = 0
+		for i,v in pairs(self.shops[coalition]) do
+			count = count +1
+			if count<10 then
+				missionCommands.addCommandForCoalition(coalition, i, purchasemenu, self.buyShopItem, self, coalition, i)
+			elseif count==10 then
+				sub1 = missionCommands.addSubMenuForCoalition("More", purchasemenu)
+				missionCommands.addCommandForCoalition(coalition, i, sub1, self.buyShopItem, self, coalition, i)
+			else
+				missionCommands.addCommandForCoalition(coalition, i, sub1, self.buyShopItem, self, coalition, i)
+			end
+		end
+	end
+	
+	-- end shops and currency
+	
+	function BattleCommander:getStateTable()
+		local states = {zones={}, accounts={}}
+		for i,v in ipairs(self.zones) do
+			states.zones[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedCriticalObjects(), active = v.active }
+		end
+		
+		states.accounts = self.accounts
 		
 		return states
 	end
@@ -265,25 +357,31 @@ do
 	function BattleCommander:loadFromDisk()
 		Utils.loadTable('zoneComPersistance.lua')
 		if zonePersistance then
-			for i,v in pairs(zonePersistance) do
-				local zn = self:getZoneByName(i)
-				if zn then
-					zn.side = v.side
-					zn.level = v.level
-					
-					if type(v.active)=='boolean' then
-						zn.active = v.active
-					end
-					
-					if not zn.active then
-						zn.side = 0
-						zn.level = 0
-					end
-					
-					if v.destroyed then
-						zn.destroyOnInit = v.destroyed
+			if zonePersistance.zones then
+				for i,v in pairs(zonePersistance.zones) do
+					local zn = self:getZoneByName(i)
+					if zn then
+						zn.side = v.side
+						zn.level = v.level
+						
+						if type(v.active)=='boolean' then
+							zn.active = v.active
+						end
+						
+						if not zn.active then
+							zn.side = 0
+							zn.level = 0
+						end
+						
+						if v.destroyed then
+							zn.destroyOnInit = v.destroyed
+						end
 					end
 				end
+			end
+			
+			if zonePersistance.accounts then
+				self.accounts = zonePersistance.accounts
 			end
 		end
 	end
@@ -291,7 +389,7 @@ end
 
 ZoneCommander = {}
 do
-	--{ zone='zonename', side=[0=neutral, 1=red, 2=blue], level=int, upgrades={red={}, blue={}}, crates={} }
+	--{ zone='zonename', side=[0=neutral, 1=red, 2=blue], level=int, upgrades={red={}, blue={}}, crates={}, flavourtext=string, income=number }
 	function ZoneCommander:new(obj)
 		obj = obj or {}
 		obj.built = {}
@@ -534,6 +632,10 @@ do
 		
 		for i,v in ipairs(self.restrictedGroups) do
 			trigger.action.setUserFlag(v.name, v.side ~= self.side)
+		end
+		
+		if self.income and self.side ~= 0 and self.active then
+			self.battleCommander:addFunds(self.side, self.income)
 		end
 	end
 	

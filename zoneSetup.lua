@@ -75,7 +75,7 @@ flavor = {
 	krymsk='Airbase next to the city of Krymsk.\nCapturing it will provide us with valuable aircraft to use for our cause.',
 	radio='Radio atenna on the outskirts of Krymsk.\nIf we capture it, we can launch AWACS from the nearby airport\nto get some much needed intel on the enemy.',
 	delta='Defensive position out in the middle of nowhere',
-	factory='Weapon factory next to the town of Homskiy.\nWe can use it to resupply nearby bases.',
+	factory='Weapon factory next to the town of Homskiy.\nWe can use it to resupply nearby bases.\nIt will also provide a steady stream of income.',
 	samsite='Home to an old SA-2 site.\nIf we capture it, we might be able to get some use out of it.',
 	foxtrot='Defensive position with a nice view of a lake',
 	echo='FARP next to the city of Krasnodar.\nCapturing it will let us operate our helicopters in the area.',
@@ -90,7 +90,7 @@ charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, cra
 krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk, flavorText=flavor.krymsk})
 radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=special, crates=cargoAccepts.general, flavorText=flavor.radio})
 delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.delta})
-factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=special, crates=cargoAccepts.factory, flavorText=flavor.factory})
+factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=special, crates=cargoAccepts.factory, flavorText=flavor.factory, income=2})
 samsite = ZoneCommander:new({zone='SAM Site', side=0, level=0, upgrades=specialSAM, crates=cargoAccepts.general, flavorText=flavor.samsite})
 foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.foxtrot})
 echo = ZoneCommander:new({zone='Echo', side=1, level=3, upgrades=farp, crates=cargoAccepts.echo, flavorText=flavor.echo})
@@ -227,8 +227,14 @@ bc:addConnection("Echo","Krasnodar")
 bc:addConnection("Echo","SAM Site")
 bc:addConnection("Krymsk","SAM Site")
 
+
+bc:setStartupBugets(500,600)
+
 bc:loadFromDisk()
 bc:init()
+
+bc:addShopItem(2, 'Test item 1', 2, 200, function(sender) trigger.action.outText(sender.name, 5) end)
+bc:addShopItem(2, 'Test item 2', -1, 10, function(sender) trigger.action.outText(sender.name..' xxx', 5) end)
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do
