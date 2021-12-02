@@ -146,6 +146,7 @@ do
 	BattleCommander.accounts = { [1]=0, [2]=0} -- 1 = red coalition, 2 = blue coalition
 	BattleCommander.shops = {[1]={}, [2]={}}
 	BattleCommander.shopItems = {}
+	BattleCommander.monitorROE = {}
 	
 	function BattleCommander:new()
 		local obj = {}
@@ -184,7 +185,13 @@ do
 	function BattleCommander:printShopStatus(coalition)
 		local text = 'Credits: '..self.accounts[coalition]..'\n'
 		
-		for i,v in pairs(self.shops[coalition]) do
+		local sorted = {}
+		for i,v in pairs(self.shops[coalition]) do table.insert(sorted,{i,v}) end
+		table.sort(sorted, function(a,b) return a[2].name < b[2].name end)
+		
+		for i2,v2 in pairs(sorted) do
+			local i = v2[1]
+			local v = v2[2]
 			text = text..'\n[Cost: '..v.cost..'] '..v.name
 			if v.stock ~= -1 then
 				text = text..' [Available: '..v.stock..']'
@@ -244,25 +251,92 @@ do
 		local purchasemenu = missionCommands.addSubMenuForCoalition(coalition, 'Purchase', shopmenu)
 		local sub1
 		local count = 0
-		for i,v in pairs(self.shops[coalition]) do
+		
+		local sorted = {}
+		for i,v in pairs(self.shops[coalition]) do table.insert(sorted,{i,v}) end
+		table.sort(sorted, function(a,b) return a[2].name < b[2].name end)
+		
+		for i2,v2 in pairs(sorted) do
+			local i = v2[1]
+			local v = v2[2]
 			count = count +1
 			if count<10 then
-				missionCommands.addCommandForCoalition(coalition, v.name, purchasemenu, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, purchasemenu, self.buyShopItem, self, coalition, i)
 			elseif count==10 then
 				sub1 = missionCommands.addSubMenuForCoalition("More", purchasemenu)
-				missionCommands.addCommandForCoalition(coalition, v.name, sub1, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
+			elseif count==19 then
+				sub1 = missionCommands.addSubMenuForCoalition("More", sub1)
+				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
 			else
-				missionCommands.addCommandForCoalition(coalition, v.name, sub1, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
 			end
 		end
 	end
 	
 	-- end shops and currency
+	function BattleCommander:addMonitoredROE(groupname)
+		table.insert(self.monitorROE, groupname)
+	end
+	
+	function BattleCommander:checkROE(groupname)
+		local gr = Group.getByName(groupname)
+		if gr then
+			local controller = gr:getController()
+			if controller:hasTask() then
+				controller:setOption(AI.Option.Naval.id.ROE, AI.Option.Naval.Val.ROE.OPEN_FIRE)
+			else
+				controller:setOption(AI.Option.Naval.id.ROE, AI.Option.Naval.Val.ROE.WEAPON_HOLD)
+			end
+		end
+	end
+	
+	function BattleCommander:fireAtZone(tgtzone, groupname)
+		local zn = self:getZoneByName(tgtzone)
+		local launchers = Group.getByName(groupname)
+		
+		if zn.side ~= 1 then
+			return 'Can not launch attack on friendly zone'
+		end
+		
+		if not launchers then
+			return 'Not available'
+		end
+		
+		for i,v in ipairs(zn.built) do
+			local g = Group.getByName(v)
+			if g then
+				local sz = g:getSize()
+				local units = {math.random(1,sz), math.random(1,sz)}
+				for i2,v2 in ipairs(units) do
+					local unt = g:getUnit(v2)
+					if unt then
+						local target = {}
+						target.x = unt:getPosition().p.x
+						target.y = unt:getPosition().p.z
+						target.radius = 100
+						target.expendQty = 1
+						target.expendQtyEnabled = true
+						local fire = {id = 'FireAtPoint', params = target}
+						
+						local launchers = Group.getByName(groupname)
+						launchers:getController():pushTask(fire)
+					end
+				end
+			end
+		end
+	end
 	
 	function BattleCommander:getStateTable()
 		local states = {zones={}, accounts={}}
 		for i,v in ipairs(self.zones) do
-			states.zones[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedCriticalObjects(), active = v.active }
+			states.zones[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
+			
+			for i2,v2 in ipairs(v.triggers) do
+				if v2.id then
+					states.zones[v.zone].triggers[v2.id] = v2.hasRun
+				end
+			end
 		end
 		
 		states.accounts = self.accounts
@@ -373,6 +447,10 @@ do
 		for i,v in ipairs(self.zones) do
 			v:update()
 		end
+		
+		for i,v in ipairs(self.monitorROE) do
+			self:checkROE(v)
+		end
 	end
 	
 	function BattleCommander:saveToDisk()
@@ -401,6 +479,15 @@ do
 						
 						if v.destroyed then
 							zn.destroyOnInit = v.destroyed
+						end
+						
+						if v.triggers then
+							for i2,v2 in ipairs(zn.triggers) do
+								local tr = v.triggers[v2.id]
+								if tr then
+									v2.hasRun = tr
+								end
+							end
 						end
 					end
 				end
@@ -459,18 +546,17 @@ do
 	
 	--zone triggers 
 	-- trigger types= captured, upgraded, repaired, lost, destroyed
-	function ZoneCommander:registerTrigger(eventType, action)
-		table.insert(self.triggers, {eventType = eventType, action = action})
+	function ZoneCommander:registerTrigger(eventType, action, id, timesToRun)
+		table.insert(self.triggers, {eventType = eventType, action = action, id = id, timesToRun = timesToRun, hasRun=0})
 	end
 	
 	--return true from eventhandler to end event after run
 	function ZoneCommander:runTriggers(eventType)
 		for i,v in ipairs(self.triggers) do
 			if v.eventType == eventType then
-				local endme = v.action(eventType, self)
-				
-				if endme then
-					self.triggers[i] = nil
+				if not timesToRun or hasRun < timesToRun then
+					v.action(eventType, self)
+					v.hasRun = v.hasRun + 1
 				end
 			end
 		end

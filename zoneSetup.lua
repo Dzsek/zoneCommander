@@ -228,7 +228,7 @@ bc:addConnection("Echo","SAM Site")
 bc:addConnection("Krymsk","SAM Site")
 
 
---alpha:registerTrigger('captured', function (event, sender) trigger.action.outText(sender.zone..' '..event,5) end)
+--alpha:registerTrigger('captured', function (event, sender) trigger.action.outText(sender.zone..' '..event,5) end, 'cap1', 1)
 
 bc:addFunds(1,0)
 bc:addFunds(2,1000)
@@ -236,12 +236,45 @@ bc:addFunds(2,1000)
 Group.getByName('sead1'):destroy()
 bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 200, function(sender) 
 	local gr = Group.getByName('sead1')
-	if gr and gr:getSize()>0 then 
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'SEAD mission still in progress'
 	end
 	mist.respawnGroup('sead1', true)
 end)
+
+Group.getByName('sweep1'):destroy()
+bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 200, function(sender) 
+	local gr = Group.getByName('sweep1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'Fighter sweep mission still in progress'
+	end
+	mist.respawnGroup('sweep1', true)
+end)
+
+Group.getByName('cas1'):destroy()
+bc:registerShopItem('cas1', 'F-4 Ground Attack', 200, function(sender) 
+	local gr = Group.getByName('cas1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'Ground attack mission still in progress'
+	end
+	mist.respawnGroup('cas1', true)
+end)
+
+bc:addMonitoredROE('cruise1')
+bc:registerShopItem('krymskAttack', 'Launch Cruise Missiles on Krymsk', 200, function(sender)
+	bc:fireAtZone('Krymsk','cruise1')
+end)
+
+bc:registerShopItem('krasAttack', 'Launch Cruise Missiles on Krasnodar', 200, function(sender)
+	bc:fireAtZone('Krasnodar','cruise1')
+end)
+
+
 bc:addShopItem(2, 'sead1', -1)
+bc:addShopItem(2, 'sweep1', -1)
+bc:addShopItem(2, 'cas1', -1)
+bc:addShopItem(2, 'krymskAttack', -1)
+bc:addShopItem(2, 'krasAttack', -1)
 
 bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()
