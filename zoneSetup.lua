@@ -45,6 +45,11 @@ specialKrasnodar = {
 	red = {"rInfantry", "rSamIR", "rSam2", "rSam3", "rSamBig", "rSamFinal" }
 }
 
+convoy = {
+	blue = {"bInfantry", "bInfantry", "bArmor"},
+	red = {"rInfantry", "rInfantry", "rArmor"}
+}
+
 cargoSpawns = {
 	["Anapa"] = {"c1","c2","c3"},
 	["Bravo"] = {"c6","c7"},
@@ -72,6 +77,7 @@ flavor = {
 	alpha='Defensive position next to the town of Natuhaevskaya',
 	bravo='FARP next to the town of Damanka.\nWill let us launch helicopter attacks from a bit closer to the action.',
 	charlie='Defensive position next to an old TV tower.\nWill provide allied air patrol to help capture Bravo',
+	convoy='Supply convoy detained north of Bravo.\nKeep damage to the trucks to a minimum while liberating this area.\nWe could really use the supplies.',
 	krymsk='Airbase next to the city of Krymsk.\nCapturing it will provide us with valuable aircraft to use for our cause.',
 	radio='Radio atenna on the outskirts of Krymsk.\nIf we capture it, we can launch AWACS from the nearby airport\nto get some much needed intel on the enemy.',
 	delta='Defensive position out in the middle of nowhere',
@@ -87,6 +93,7 @@ anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, cra
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.alpha})
 bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo, flavorText=flavor.bravo})
 charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.charlie})
+convoy = ZoneCommander:new({zone='Convoy', side=1, level=3, upgrades=convoy, crates=cargoAccepts.general, flavorText=flavor.convoy})
 krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk, flavorText=flavor.krymsk})
 radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=special, crates=cargoAccepts.general, flavorText=flavor.radio})
 delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.delta})
@@ -100,6 +107,10 @@ radio:addCriticalObject('RadioTower')
 samsite:addCriticalObject('CommandCenter')
 factory:addCriticalObject('FactoryBuilding1')
 factory:addCriticalObject('FactoryBuilding2')
+convoy:addCriticalObject('convoy1')
+convoy:addCriticalObject('convoy2')
+convoy:addCriticalObject('convoy3')
+convoy:addCriticalObject('convoy4')
 
 dispatch = {
 	krymsk = {
@@ -201,6 +212,7 @@ bc:addZone(anapa)
 bc:addZone(alpha)
 bc:addZone(bravo)
 bc:addZone(charlie)
+bc:addZone(convoy)
 bc:addZone(krymsk)
 bc:addZone(radio)
 bc:addZone(delta)
@@ -214,6 +226,7 @@ bc:addConnection("Anapa","Alpha")
 bc:addConnection("Alpha","Bravo")
 bc:addConnection("Bravo","Krymsk")
 bc:addConnection("Bravo","Charlie")
+bc:addConnection("Bravo","Convoy")
 bc:addConnection("Anapa","Charlie")
 bc:addConnection("Krymsk","Radio Tower")
 bc:addConnection("Krymsk","Factory")
@@ -228,13 +241,39 @@ bc:addConnection("Echo","SAM Site")
 bc:addConnection("Krymsk","SAM Site")
 
 
---alpha:registerTrigger('captured', function (event, sender) trigger.action.outText(sender.zone..' '..event,5) end, 'cap1', 1)
+convoy:registerTrigger('lost', function (event, sender)
+	local convoyItems = {'convoy1','convoy2','convoy3', 'convoy4'}
+	
+	local message = "Convoy liberated"
+	local totalLost = 0
+	for i,v in ipairs(convoyItems) do
+		if not StaticObject.getByName(v) then
+			totalLost = totalLost+1
+		end
+	end
+	
+	if totalLost>0 then
+		local percentLost = math.ceil((totalLost/#convoyItems)*100)
+		percentLost = math.min(percentLost,100)
+		percentLost = math.max(percentLost,1)
+		message = message..' but we lost '..percentLost..' of the trucks.'
+	else
+		message = message..'. We recovered all of the supplies.'
+	end
+	
+	local creditsEarned = (#convoyItems - totalLost) * 250
+	message = message..'\n\n+'..creditsEarned..' credits'
+	
+	bc:addFunds(2, creditsEarned)
+	
+	trigger.action.outTextForCoalition(2, message, 15)
+end, 'convoyLost', 1)
 
 bc:addFunds(1,0)
-bc:addFunds(2,1000)
+bc:addFunds(2,0)
 
 Group.getByName('sead1'):destroy()
-bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 200, function(sender) 
+bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 400, function(sender) 
 	local gr = Group.getByName('sead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'SEAD mission still in progress'
@@ -243,7 +282,7 @@ bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 200, function(sender)
 end)
 
 Group.getByName('sweep1'):destroy()
-bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 200, function(sender) 
+bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 250, function(sender) 
 	local gr = Group.getByName('sweep1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Fighter sweep mission still in progress'
@@ -252,7 +291,7 @@ bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 200, function(sender)
 end)
 
 Group.getByName('cas1'):destroy()
-bc:registerShopItem('cas1', 'F-4 Ground Attack', 200, function(sender) 
+bc:registerShopItem('cas1', 'F-4 Ground Attack', 300, function(sender) 
 	local gr = Group.getByName('cas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Ground attack mission still in progress'
@@ -261,23 +300,52 @@ bc:registerShopItem('cas1', 'F-4 Ground Attack', 200, function(sender)
 end)
 
 bc:addMonitoredROE('cruise1')
-bc:registerShopItem('krymskAttack', 'Launch Cruise Missiles on Krymsk', 200, function(sender)
-	bc:fireAtZone('Krymsk','cruise1')
-end)
+local cruiseMissileTargetMenu = nil
 
-bc:registerShopItem('krasAttack', 'Launch Cruise Missiles on Krasnodar', 200, function(sender)
-	bc:fireAtZone('Krasnodar','cruise1')
+bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 1500, function(sender)
+	if cruiseMissileTargetMenu then
+		return 'Choose target zone from F10 menu'
+	end
+	
+	local launchAttack = function(target)
+		if cruiseMissileTargetMenu then
+			missionCommands.removeItemForCoalition(2, cruiseMissileTargetMenu)
+			cruiseMissileTargetMenu = nil
+			bc:fireAtZone(target, 'cruise1', true, 6)
+			trigger.action.outTextForCoalition(2, 'Launching cruise missiles at '..target, 15)
+		end
+	end
+	
+	cruiseMissileTargetMenu = missionCommands.addSubMenuForCoalition(2, 'Cruise Missile Target')
+	local sub1
+	local zones = bc:getZones()
+	local count = 0
+	for i,v in ipairs(zones) do
+		if v.side == 1 then
+			count = count + 1
+			if count<10 then
+				missionCommands.addCommandForCoalition(2, v.zone, cruiseMissileTargetMenu, launchAttack, v.zone)
+			elseif count==10 then
+				sub1 = missionCommands.addSubMenu("More", cruiseMissileTargetMenu)
+				missionCommands.addCommandForCoalition(2, v.zone, sub1, launchAttack, v.zone)
+			else
+				missionCommands.addCommandForCoalition(2, v.zone, sub1, launchAttack, v.zone)
+			end
+		end
+	end
+	
+	trigger.action.outTextForCoalition(2, 'Cruise missiles ready. Choose target zone from F10 menu', 15)
 end)
 
 
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
-bc:addShopItem(2, 'krymskAttack', -1)
-bc:addShopItem(2, 'krasAttack', -1)
+bc:addShopItem(2, 'cruiseAttack', -1)
 
 bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()
+bc:startRewardPlayerContribution(5,{airplane = 20, ship = 100, helicopter=30})
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do

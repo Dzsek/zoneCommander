@@ -147,6 +147,7 @@ do
 	BattleCommander.shops = {[1]={}, [2]={}}
 	BattleCommander.shopItems = {}
 	BattleCommander.monitorROE = {}
+	BattleCommander.playerContributions = {[1]={}, [2]={}}
 	
 	function BattleCommander:new()
 		local obj = {}
@@ -195,6 +196,21 @@ do
 			text = text..'\n[Cost: '..v.cost..'] '..v.name
 			if v.stock ~= -1 then
 				text = text..' [Available: '..v.stock..']'
+			end
+		end
+		
+		if self.playerContributions[coalition] then
+			for i,v in pairs(self.playerContributions[coalition]) do
+				if v>0 then
+					text = text..'\n\nUnclaimed credits'
+					break
+				end
+			end
+			
+			for i,v in pairs(self.playerContributions[coalition]) do
+				if v>0 then
+					text = text..'\n '..i..' ['..v..']'
+				end
 			end
 		end
 		
@@ -247,8 +263,6 @@ do
 		missionCommands.removeItemForCoalition(coalition, {[1]='Support'})
 		
 		local shopmenu = missionCommands.addSubMenuForCoalition(coalition, 'Support')
-		missionCommands.addCommandForCoalition(coalition, 'Inventory', shopmenu, self.printShopStatus, self, coalition)
-		local purchasemenu = missionCommands.addSubMenuForCoalition(coalition, 'Purchase', shopmenu)
 		local sub1
 		local count = 0
 		
@@ -261,9 +275,9 @@ do
 			local v = v2[2]
 			count = count +1
 			if count<10 then
-				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, purchasemenu, self.buyShopItem, self, coalition, i)
+				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, shopmenu, self.buyShopItem, self, coalition, i)
 			elseif count==10 then
-				sub1 = missionCommands.addSubMenuForCoalition("More", purchasemenu)
+				sub1 = missionCommands.addSubMenuForCoalition("More", shopmenu)
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
 			elseif count==19 then
 				sub1 = missionCommands.addSubMenuForCoalition("More", sub1)
@@ -275,6 +289,7 @@ do
 	end
 	
 	-- end shops and currency
+	
 	function BattleCommander:addMonitoredROE(groupname)
 		table.insert(self.monitorROE, groupname)
 	end
@@ -284,14 +299,14 @@ do
 		if gr then
 			local controller = gr:getController()
 			if controller:hasTask() then
-				controller:setOption(AI.Option.Naval.id.ROE, AI.Option.Naval.Val.ROE.OPEN_FIRE)
+				controller:setOption(0, 2) -- roe = open fire
 			else
-				controller:setOption(AI.Option.Naval.id.ROE, AI.Option.Naval.Val.ROE.WEAPON_HOLD)
+				controller:setOption(0, 4) -- roe = weapon hold
 			end
 		end
 	end
 	
-	function BattleCommander:fireAtZone(tgtzone, groupname)
+	function BattleCommander:fireAtZone(tgtzone, groupname, precise, ammount)
 		local zn = self:getZoneByName(tgtzone)
 		local launchers = Group.getByName(groupname)
 		
@@ -303,27 +318,46 @@ do
 			return 'Not available'
 		end
 		
-		for i,v in ipairs(zn.built) do
-			local g = Group.getByName(v)
-			if g then
-				local sz = g:getSize()
-				local units = {math.random(1,sz), math.random(1,sz)}
-				for i2,v2 in ipairs(units) do
-					local unt = g:getUnit(v2)
-					if unt then
-						local target = {}
-						target.x = unt:getPosition().p.x
-						target.y = unt:getPosition().p.z
-						target.radius = 100
-						target.expendQty = 1
-						target.expendQtyEnabled = true
-						local fire = {id = 'FireAtPoint', params = target}
-						
-						local launchers = Group.getByName(groupname)
-						launchers:getController():pushTask(fire)
+		if precise then
+			local units = {}
+			for i,v in pairs(zn.built) do
+				local g = Group.getByName(v)
+				if g then
+					for i2,v2 in ipairs(g:getUnits()) do
+						table.insert(units, v2)
 					end
 				end
 			end
+			
+			for i=1,ammount,1 do
+				local tgt = math.random(1,#units)
+				
+				local unt = units[tgt]
+				if unt then
+					local target = {}
+					target.x = unt:getPosition().p.x
+					target.y = unt:getPosition().p.z
+					target.radius = 100
+					target.expendQty = 1
+					target.expendQtyEnabled = true
+					local fire = {id = 'FireAtPoint', params = target}
+					
+					local launchers = Group.getByName(groupname)
+					launchers:getController():pushTask(fire)
+				end
+			end
+		else
+			local tz = trigger.misc.getZone(zn.zone)
+			local target = {}
+			target.x = tz.point.x
+			target.y = tz.point.y
+			target.radius = tz.radius
+			target.expendQty = ammount
+			target.expendQtyEnabled = true
+			local fire = {id = 'FireAtPoint', params = target}
+			
+			local launchers = Group.getByName(groupname)
+			launchers:getController():pushTask(fire)
 		end
 	end
 	
@@ -419,6 +453,8 @@ do
 			trigger.action.lineToAll(-1, 1000+i, from.point, to.point, {1,1,1,0.5}, 2)
 		end
 		
+		missionCommands.addCommandForCoalition(1, 'Buget overview', nil, self.printShopStatus, self, 1)
+		missionCommands.addCommandForCoalition(2, 'Buget overview', nil, self.printShopStatus, self, 2)
 		
 		self:refreshShopMenuForCoalition(1)
 		self:refreshShopMenuForCoalition(2)
@@ -428,13 +464,73 @@ do
 		
 		local ev = {}
 		function ev:onEvent(event)
-			if (event.id==20) and event.initiator and (event.initiator:getCategory() == Unit.Category.AIRPLANE or event.initiator:getCategory() == Unit.Category.HELICOPTER)  then
+			if event.id==20 and event.initiator and event.initiator:getCategory() == Object.Category.UNIT and (event.initiator:getDesc().category == Unit.Category.AIRPLANE or event.initiator:getDesc().category == Unit.Category.HELICOPTER)  then
 				local pname = event.initiator:getPlayerName()
 				if pname then
 					local gr = event.initiator:getGroup()
 					if trigger.misc.getUserFlag(gr:getName())==1 then
 						trigger.action.outTextForGroup(gr:getID(), 'Can not spawn as '..gr:getName()..' in enemy/neutral zone',5)
 						event.initiator:destroy()
+					end
+				end
+			end
+		end
+		
+		world.addEventHandler(ev)
+	end
+	
+	-- defaultReward - base pay, rewards = {airplane=0, helicopter=0, ground=0, ship=0, structure=0} - overrides
+	function BattleCommander:startRewardPlayerContribution(defaultReward, rewards)
+	
+		local ev = {}
+		ev.context = self
+		ev.rewards = rewards
+		ev.default = defaultReward
+		function ev:onEvent(event)
+			local unit = event.initiator
+			if unit and unit:getCategory() == Object.Category.UNIT and (unit:getDesc().category == Unit.Category.AIRPLANE or unit:getDesc().category == Unit.Category.HELICOPTER)then
+				local side = unit:getCoalition()
+				local pname = unit:getPlayerName()
+				if pname then
+					if (event.id==20) then  -- spawned
+						self.context.playerContributions[side][pname] = 0
+					end
+					
+					if (event.id==28) then --killed unit
+						if side ~= event.target:getCoalition() then
+							if self.context.playerContributions[side][pname] ~= nil then
+								if event.target:getCategory() == Object.Category.UNIT then
+									local targetType = event.target:getDesc().category
+									local earning = self.default
+									
+									if targetType == Unit.Category.AIRPLANE and self.rewards.airplane then
+										earning = self.rewards.airplane
+									elseif targetType == Unit.Category.HELICOPTER and self.rewards.helicopter then
+										earning = self.rewards.helicopter
+									elseif targetType == Unit.Category.GROUND_UNIT and self.rewards.ground then
+										earning = self.rewards.ground
+									elseif targetType == Unit.Category.SHIP and self.rewards.ship then
+										earning = self.rewards.ship
+									elseif targetType == Unit.Category.STRUCTURE and self.rewards.structure then
+										earning = self.rewards.structure
+									end
+									
+									self.context.playerContributions[side][pname] = self.context.playerContributions[side][pname] + earning
+								end
+							end
+						end
+					end
+					
+					if (event.id==4) then --landed
+						if self.context.playerContributions[side][pname] and self.context.playerContributions[side][pname] > 0 then
+							for i,v in ipairs(self.context:getZones()) do
+								if unit:getCoalition()==v.side and Utils.isInZone(unit, v.zone) then
+									self.context:addFunds(v.side, self.context.playerContributions[side][pname])
+									trigger.action.outTextForCoalition(v.side, '['..pname..'] redeemed '..self.context.playerContributions[side][pname]..' credits', 5)
+									self.context.playerContributions[side][pname] = 0
+								end
+							end
+						end
 					end
 				end
 			end
@@ -554,7 +650,7 @@ do
 	function ZoneCommander:runTriggers(eventType)
 		for i,v in ipairs(self.triggers) do
 			if v.eventType == eventType then
-				if not timesToRun or hasRun < timesToRun then
+				if not v.timesToRun or v.hasRun < v.timesToRun then
 					v.action(eventType, self)
 					v.hasRun = v.hasRun + 1
 				end
