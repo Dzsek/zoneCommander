@@ -457,7 +457,7 @@ bugetAI:init()
 
 bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()
-bc:startRewardPlayerContribution(5,{airplane = 20, ship = 100, helicopter=30})
+bc:startRewardPlayerContribution(15,{infantry = 5, ground = 15, sam = 30, airplane = 30, ship = 200, helicopter=40})
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do

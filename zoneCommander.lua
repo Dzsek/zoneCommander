@@ -491,7 +491,7 @@ do
 		world.addEventHandler(ev)
 	end
 	
-	-- defaultReward - base pay, rewards = {airplane=0, helicopter=0, ground=0, ship=0, structure=0} - overrides
+	-- defaultReward - base pay, rewards = {airplane=0, helicopter=0, ground=0, ship=0, structure=0, infantry=0, sam=0} - overrides
 	function BattleCommander:startRewardPlayerContribution(defaultReward, rewards)
 	
 		local ev = {}
@@ -502,6 +502,7 @@ do
 			local unit = event.initiator
 			if unit and unit:getCategory() == Object.Category.UNIT and (unit:getDesc().category == Unit.Category.AIRPLANE or unit:getDesc().category == Unit.Category.HELICOPTER)then
 				local side = unit:getCoalition()
+				local groupid = unit:getGroup():getID()
 				local pname = unit:getPlayerName()
 				if pname then
 					if (event.id==15) then  -- spawned
@@ -517,14 +518,29 @@ do
 									
 									if targetType == Unit.Category.AIRPLANE and self.rewards.airplane then
 										earning = self.rewards.airplane
+										trigger.action.outTextForGroup(groupid, 'Aircraft kill +'..earning..' credits', 5)
 									elseif targetType == Unit.Category.HELICOPTER and self.rewards.helicopter then
 										earning = self.rewards.helicopter
-									elseif targetType == Unit.Category.GROUND_UNIT and self.rewards.ground then
-										earning = self.rewards.ground
+										trigger.action.outTextForGroup(groupid, 'Helicopter kill +'..earning..' credits', 5)
+									elseif targetType == Unit.Category.GROUND_UNIT then
+										if unit:hasAttribute('Infantry') and self.rewards.infantry then
+											earning = self.rewards.infantry
+											trigger.action.outTextForGroup(groupid, 'Infantry kill +'..earning..' credits', 5)
+										elseif (unit:hasAttribute('SAM SR') or unit:hasAttribute('SAM TR')) and self.rewards.sam then
+											earning = self.rewards.sam
+											trigger.action.outTextForGroup(groupid, 'SAM kill +'..earning..' credits', 5)
+										else
+											earning = self.rewards.ground
+											trigger.action.outTextForGroup(groupid, 'Ground kill +'..earning..' credits', 5)
+										end
 									elseif targetType == Unit.Category.SHIP and self.rewards.ship then
 										earning = self.rewards.ship
+										trigger.action.outTextForGroup(groupid, 'Ship kill +'..earning..' credits', 5)
 									elseif targetType == Unit.Category.STRUCTURE and self.rewards.structure then
 										earning = self.rewards.structure
+										trigger.action.outTextForGroup(groupid, 'Structure kill +'..earning..' credits', 5)
+									else
+										trigger.action.outTextForGroup(groupid, 'Unit kill +'..earning..' credits', 5)
 									end
 									
 									self.context.playerContributions[side][pname] = self.context.playerContributions[side][pname] + earning
@@ -537,9 +553,22 @@ do
 						if self.context.playerContributions[side][pname] and self.context.playerContributions[side][pname] > 0 then
 							for i,v in ipairs(self.context:getZones()) do
 								if side==v.side and Utils.isInZone(unit, v.zone) then
-									self.context:addFunds(v.side, self.context.playerContributions[side][pname])
-									trigger.action.outTextForCoalition(v.side, '['..pname..'] redeemed '..self.context.playerContributions[side][pname]..' credits', 5)
-									self.context.playerContributions[side][pname] = 0
+									
+									trigger.action.outTextForGroup(groupid, '['..pname..'] landed at '..v.zone..'.\nWait 10 seconds to claim credits...', 5)
+									
+									local claimfunc = function(context, zone, player, unitname)
+										local un = Unit.getByName(unitname)
+										if un and Utils.isInZone(un,zone.zone) and un:getPlayerName()==player then
+											if un:getLife() > 0 then
+												context:addFunds(zone.side, context.playerContributions[zone.side][player])
+												trigger.action.outTextForCoalition(zone.side, '['..player..'] redeemed '..context.playerContributions[zone.side][player]..' credits', 5)
+												context.playerContributions[zone.side][player] = 0
+											end
+										end
+									end
+									
+									mist.scheduleFunction(claimfunc, {self.context, v, pname, unit:getName() }, timer.getTime()+10)
+									break
 								end
 							end
 						end
