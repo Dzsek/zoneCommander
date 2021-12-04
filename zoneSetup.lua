@@ -80,6 +80,7 @@ flavor = {
 	convoy='Supply convoy detained north of Bravo.\nKeep damage to the trucks to a minimum while liberating this area.\nWe could really use the supplies.',
 	krymsk='Airbase next to the city of Krymsk.\nCapturing it will provide us with valuable aircraft to use for our cause.',
 	radio='Radio atenna on the outskirts of Krymsk.\nIf we capture it, we can launch AWACS from the nearby airport\nto get some much needed intel on the enemy.',
+	oilfields='Oil extraction and Refinery north of Krymsk.\nCapture it to get a steady stream of income, or just destroy it to put a hole in the enemy wallet.',
 	delta='Defensive position out in the middle of nowhere',
 	factory='Weapon factory next to the town of Homskiy.\nWe can use it to resupply nearby bases.\nIt will also provide a steady stream of income.',
 	samsite='Home to an old SA-2 site.\nIf we capture it, we might be able to get some use out of it.',
@@ -95,6 +96,7 @@ bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=
 charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.charlie})
 convoy = ZoneCommander:new({zone='Convoy', side=1, level=3, upgrades=convoy, crates=cargoAccepts.general, flavorText=flavor.convoy})
 krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk, flavorText=flavor.krymsk})
+oilfields = ZoneCommander:new({zone='Oil Fields', side=1, level=3, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.oilfields, income=2})
 radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=special, crates=cargoAccepts.general, flavorText=flavor.radio})
 delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.delta})
 factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=special, crates=cargoAccepts.factory, flavorText=flavor.factory, income=2})
@@ -111,6 +113,11 @@ convoy:addCriticalObject('convoy1')
 convoy:addCriticalObject('convoy2')
 convoy:addCriticalObject('convoy3')
 convoy:addCriticalObject('convoy4')
+
+local oilbuildings = {'derrick1','derrick2','derrick3','pump1','pump2','pump3','pump4','pump5','pump6','pump7','pump8','tank1','tank2','tank3','tank4','oilref1','oilref2'}
+for i,v in ipairs(oilbuildings) do
+	oilfields:addCriticalObject(v)
+end
 
 dispatch = {
 	krymsk = {
@@ -134,7 +141,10 @@ dispatch = {
 		GroupCommander:new({name='krym18', mission='supply', targetzone='SAM Site'}),
 		GroupCommander:new({name='krym19', mission='supply', targetzone='SAM Site'}),
 		GroupCommander:new({name='krym20', mission='attack', targetzone='SAM Site'}),
-		GroupCommander:new({name='krym21', mission='patrol', targetzone='Delta'})
+		GroupCommander:new({name='krym21', mission='patrol', targetzone='Delta'}),
+		GroupCommander:new({name='krym22', mission='supply', targetzone='Oil Fields'}),
+		GroupCommander:new({name='krym23', mission='supply', targetzone='Oil Fields'}),
+		GroupCommander:new({name='krym24', mission='attack', targetzone='Oil Fields'})
 	},
 	bravo = {
 		GroupCommander:new({name='bravo1', mission='supply', targetzone='Alpha'}),
@@ -145,7 +155,10 @@ dispatch = {
 		GroupCommander:new({name='bravo5', mission='attack', targetzone='Krymsk'}),
 		GroupCommander:new({name='bravo8', mission='supply', targetzone='Krymsk'}),
 		GroupCommander:new({name='bravo10', mission='supply', targetzone='Charlie'}),
-		GroupCommander:new({name='bravo9', mission='supply', targetzone='Alpha'})
+		GroupCommander:new({name='bravo9', mission='supply', targetzone='Alpha'}),
+		GroupCommander:new({name='bravo11', mission='supply', targetzone='Oil Fields'}),
+		GroupCommander:new({name='bravo12', mission='supply', targetzone='Oil Fields'}),
+		GroupCommander:new({name='bravo13', mission='attack', targetzone='Oil Fields'})
 	},
 	anapa = {
 		GroupCommander:new({name='anapa1', mission='supply', targetzone='Alpha'}),
@@ -214,6 +227,7 @@ bc:addZone(bravo)
 bc:addZone(charlie)
 bc:addZone(convoy)
 bc:addZone(krymsk)
+bc:addZone(oilfields)
 bc:addZone(radio)
 bc:addZone(delta)
 bc:addZone(factory)
@@ -228,6 +242,8 @@ bc:addConnection("Bravo","Krymsk")
 bc:addConnection("Bravo","Charlie")
 bc:addConnection("Bravo","Convoy")
 bc:addConnection("Anapa","Charlie")
+bc:addConnection("Bravo","Oil Fields")
+bc:addConnection("Krymsk","Oil Fields")
 bc:addConnection("Krymsk","Radio Tower")
 bc:addConnection("Krymsk","Factory")
 bc:addConnection("Krymsk","Delta")
@@ -309,9 +325,13 @@ bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 1500, function(send
 	
 	local launchAttack = function(target)
 		if cruiseMissileTargetMenu then
+			local err = bc:fireAtZone(target, 'cruise1', true, 6)
+			if err then
+				return err
+			end
+			
 			missionCommands.removeItemForCoalition(2, cruiseMissileTargetMenu)
 			cruiseMissileTargetMenu = nil
-			bc:fireAtZone(target, 'cruise1', true, 6)
 			trigger.action.outTextForCoalition(2, 'Launching cruise missiles at '..target, 15)
 		end
 	end
@@ -338,10 +358,102 @@ bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 1500, function(send
 end)
 
 
+
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
 bc:addShopItem(2, 'cruiseAttack', -1)
+
+--red support
+Group.getByName('redcas1'):destroy()
+bc:registerShopItem('redcas1', 'Red Cas', 300, function(sender) 
+	local gr = Group.getByName('redcas1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'still alive'
+	end
+	mist.respawnGroup('redcas1', true)
+	trigger.action.outTextForCoalition(2,'The enemy has deployed a couple of Su-34 against our ground forces',15)
+end)
+
+Group.getByName('redcap1'):destroy()
+bc:registerShopItem('redcap1', 'Red Cap', 300, function(sender) 
+	local gr = Group.getByName('redcap1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'still alive'
+	end
+	mist.respawnGroup('redcap1', true)
+	trigger.action.outTextForCoalition(2,'Enemy MiG-31 interceptors, coming in from the South-East',15)
+end)
+
+Group.getByName('redsead1'):destroy()
+bc:registerShopItem('redsead1', 'Red Sead', 300, function(sender) 
+	local gr = Group.getByName('redsead1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'still alive'
+	end
+	mist.respawnGroup('redsead1', true)
+	trigger.action.outTextForCoalition(2,'The enemy has launched an attack from the North-East on our air defenses',15)
+end)
+
+Group.getByName('redmlrs1'):destroy()
+bc:registerShopItem('redmlrs1', 'spawn Red mlrs', 500, function(sender) 
+	local zn = bc:getZoneByName('Foxtrot')
+	if zn.side == 1 and zn.active then
+		if Group.getByName('redmlrs1') then
+			trigger.action.outTextForCoalition(2,'The enemy has resupplied its artillery near Foxtrot',15)
+		else
+			trigger.action.outTextForCoalition(2,'The enemy has deployed artillery near Foxtrot',15)
+		end
+		
+		mist.respawnGroup('redmlrs1')
+		bc:removeShopItem(1,'redmlrs1fire')
+		bc:addShopItem(1, 'redmlrs1fire', 3)
+	else
+		return 'zone not red'
+	end
+end)
+
+bc:registerShopItem('redmlrs1fire', 'fire red mlrs', 300, function(sender) 
+	local gr = Group.getByName('redmlrs1')
+	if gr then
+		local targetzones = {'Echo', 'Delta', 'SAM Site', 'Factory', 'Radio Tower', 'Krymsk'}
+		local viabletargets = {}
+		for i,v in ipairs(targetzones) do
+			local z = bc:getZoneByName(v)
+			
+			if z and z.side == 2 then
+				table.insert(viabletargets, v)
+			end
+		end
+
+		if #viabletargets==0 then
+			return 'no targets'
+		end
+		
+		local targetzn = viabletargets[math.random(1,#viabletargets)]
+		
+		local err = bc:fireAtZone(targetzn, 'redmlrs1', true, 3, 6)
+		
+		if not err then
+			trigger.action.outTextForCoalition(2,'Enemy artillery near Foxtrot has begun preparations to fire on '..targetzn,15)
+		else
+			return err
+		end
+	else
+		return 'buy first'
+	end
+end)
+
+bc:addShopItem(1, 'redcas1', -1)
+bc:addShopItem(1, 'redcap1', -1)
+bc:addShopItem(1, 'redsead1', -1)
+bc:addShopItem(1, 'redmlrs1', -1)
+
+bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=10*60, skipChance = 15})
+bugetAI:init()
+--end red support
+
+
 
 bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()

@@ -179,6 +179,11 @@ do
 		end
 	end
 	
+	function BattleCommander:removeShopItem(coalition, id)
+		self.shops[coalition][id] = nil
+		self:refreshShopMenuForCoalition(coalition)
+	end
+	
 	function BattleCommander:addFunds(coalition, ammount)
 		self.accounts[coalition] = self.accounts[coalition] + ammount
 	end
@@ -306,16 +311,20 @@ do
 		end
 	end
 	
-	function BattleCommander:fireAtZone(tgtzone, groupname, precise, ammount)
+	function BattleCommander:fireAtZone(tgtzone, groupname, precise, ammount, ammountPerTarget)
 		local zn = self:getZoneByName(tgtzone)
 		local launchers = Group.getByName(groupname)
 		
-		if zn.side ~= 1 then
+		if launchers and zn.side == launchers:getCoalition() then
 			return 'Can not launch attack on friendly zone'
 		end
 		
 		if not launchers then
 			return 'Not available'
+		end
+		
+		if ammountPerTarget==nil then
+			ammountPerTarget = 1
 		end
 		
 		if precise then
@@ -329,6 +338,10 @@ do
 				end
 			end
 			
+			if #units == 0 then
+				return 'No targets found within zone'
+			end
+			
 			for i=1,ammount,1 do
 				local tgt = math.random(1,#units)
 				
@@ -338,11 +351,10 @@ do
 					target.x = unt:getPosition().p.x
 					target.y = unt:getPosition().p.z
 					target.radius = 100
-					target.expendQty = 1
+					target.expendQty = ammountPerTarget
 					target.expendQtyEnabled = true
 					local fire = {id = 'FireAtPoint', params = target}
 					
-					local launchers = Group.getByName(groupname)
 					launchers:getController():pushTask(fire)
 				end
 			end
@@ -551,11 +563,11 @@ do
 	
 	function BattleCommander:saveToDisk()
 		local statedata = self:getStateTable()
-		Utils.saveTable('zoneComPersistance.lua', 'zonePersistance', statedata)
+		Utils.saveTable('foothold_1.1.lua', 'zonePersistance', statedata)
 	end
 	
 	function BattleCommander:loadFromDisk()
-		Utils.loadTable('zoneComPersistance.lua')
+		Utils.loadTable('foothold_1.1.lua')
 		if zonePersistance then
 			if zonePersistance.zones then
 				for i,v in pairs(zonePersistance.zones) do
@@ -1114,5 +1126,40 @@ do
 	end
 end
 
-
+BugetCommander = {}
+do
+	--{ battleCommander = object, side=coalition, decissionFrequency=seconds, decissionVariance=seconds, skipChance=percent}
+	function BugetCommander:new(obj)
+		obj = obj or {}
+		setmetatable(obj, self)
+		self.__index = self
+		return obj
+	end
+	
+	function BugetCommander:update()
+		local buget = self.battleCommander.accounts[self.side]
+		local options = self.battleCommander.shops[self.side]
+		local canAfford = {}
+		for i,v in pairs(options) do
+			if v.cost<=buget and (v.stock==-1 or v.stock>0) then
+				table.insert(canAfford, i)
+			end
+		end
+		
+		local choice = math.random(1, #canAfford)
+		
+		if math.random(1,100) > skipChance then
+			self.battleCommander:buyShopItem(self.side, canAfford[choice])
+		end
+	end
+	
+	function BugetCommander:scheduleDecission()
+		local variance = math.random(1, self.decissionVariance)
+		mist.scheduleFunction(self.update, {self}, timer.getTime() + variance)
+	end
+	
+	function BugetCommander:init()
+		mist.scheduleFunction(self.scheduleDecission, {self}, timer.getTime() + self.decissionFrequency, self.decissionFrequency)
+	end
+end
 
