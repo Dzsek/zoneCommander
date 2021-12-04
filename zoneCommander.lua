@@ -148,6 +148,8 @@ do
 	BattleCommander.shopItems = {}
 	BattleCommander.monitorROE = {}
 	BattleCommander.playerContributions = {[1]={}, [2]={}}
+	BattleCommander.playerRewardsOn = false
+	BattleCommander.rewards = {}
 	
 	function BattleCommander:new()
 		local obj = {}
@@ -491,9 +493,10 @@ do
 		world.addEventHandler(ev)
 	end
 	
-	-- defaultReward - base pay, rewards = {airplane=0, helicopter=0, ground=0, ship=0, structure=0, infantry=0, sam=0} - overrides
+	-- defaultReward - base pay, rewards = {airplane=0, helicopter=0, ground=0, ship=0, structure=0, infantry=0, sam=0, crate=0} - overrides
 	function BattleCommander:startRewardPlayerContribution(defaultReward, rewards)
-	
+		self.playerRewardsOn = true
+		self.rewards = rewards
 		local ev = {}
 		ev.context = self
 		ev.rewards = rewards
@@ -897,8 +900,14 @@ do
 				if crate and Utils.isCrateSettledInZone(crate, self.zone) then
 					if self.side == 0 then
 						self:capture(crate:getCoalition())
+						if self.battleCommander.playerRewardsOn then
+							self.battleCommander:addFunds(self.side, self.battleCommander.rewards.crate)
+						end
 					elseif self.side == crate:getCoalition() then
 						self:upgrade()
+						if self.battleCommander.playerRewardsOn then
+							self.battleCommander:addFunds(self.side, self.battleCommander.rewards.crate)
+						end
 					end
 					
 					crate:destroy()
