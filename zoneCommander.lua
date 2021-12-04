@@ -504,7 +504,7 @@ do
 				local side = unit:getCoalition()
 				local pname = unit:getPlayerName()
 				if pname then
-					if (event.id==20) then  -- spawned
+					if (event.id==15) then  -- spawned
 						self.context.playerContributions[side][pname] = 0
 					end
 					
@@ -536,7 +536,7 @@ do
 					if (event.id==4) then --landed
 						if self.context.playerContributions[side][pname] and self.context.playerContributions[side][pname] > 0 then
 							for i,v in ipairs(self.context:getZones()) do
-								if unit:getCoalition()==v.side and Utils.isInZone(unit, v.zone) then
+								if side==v.side and Utils.isInZone(unit, v.zone) then
 									self.context:addFunds(v.side, self.context.playerContributions[side][pname])
 									trigger.action.outTextForCoalition(v.side, '['..pname..'] redeemed '..self.context.playerContributions[side][pname]..' credits', 5)
 									self.context.playerContributions[side][pname] = 0
