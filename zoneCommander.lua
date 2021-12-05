@@ -256,6 +256,8 @@ do
 						else
 							trigger.action.outTextForCoalition(coalition, 'Not available at the current time',5)
 						end
+						
+						return success
 					end
 				else
 					trigger.action.outTextForCoalition(coalition,'Not available', 5)
@@ -309,6 +311,66 @@ do
 				controller:setOption(0, 2) -- roe = open fire
 			else
 				controller:setOption(0, 4) -- roe = weapon hold
+			end
+		end
+	end
+	
+	--targetzoneside = 1=red, 2=blue, 0=neutral, nil = all
+	function BattleCommander:showTargetZoneMenu(coalition, menuname, action, targetzoneside)
+		local executeAction = function(act, params)
+			local err = act(params.zone, params.menu) 
+			if not err then
+				missionCommands.removeItemForCoalition(params.coalition, params.menu)
+			end
+		end
+	
+		local menu = missionCommands.addSubMenuForCoalition(coalition, menuname)
+		local sub1
+		local zones = bc:getZones()
+		local count = 0
+		for i,v in ipairs(zones) do
+			if targetzoneside == nil or v.side == targetzoneside then
+				count = count + 1
+				if count<10 then
+					missionCommands.addCommandForCoalition(coalition, v.zone, menu, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
+				elseif count==10 then
+					sub1 = missionCommands.addSubMenuForCoalition(coalition, "More", menu)
+					missionCommands.addCommandForCoalition(coalition, v.zone, sub1, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
+				else
+					missionCommands.addCommandForCoalition(coalition, v.zone, sub1, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
+				end
+			end
+		end
+		
+		return menu
+	end
+	
+	function BattleCommander:engageZone(tgtzone, groupname)
+		local zn = self:getZoneByName(tgtzone)
+		local group = Group.getByName(groupname)
+		
+		if group and zn.side == group:getCoalition() then
+			return 'Can not engage friendly zone'
+		end
+		
+		if not group then
+			return 'Not available'
+		end
+		
+		local cnt=group:getController()
+		cnt:popTask()
+		
+		for i,v in pairs(zn.built) do
+			local g = Group.getByName(v)
+			if g then
+				task = { 
+				  id = 'AttackGroup', 
+				  params = { 
+					groupId = g:getID()
+				  } 
+				}
+				
+				cnt:pushTask(task)
 			end
 		end
 	end
@@ -508,6 +570,15 @@ do
 				local groupid = unit:getGroup():getID()
 				local pname = unit:getPlayerName()
 				if pname then
+					if (event.id==6) then --pilot ejected
+						if self.context.playerContributions[side][pname] ~= nil and self.context.playerContributions[side][pname]>0 then
+							local tenp = math.floor(self.context.playerContributions[side][pname]*0.25)
+							self.context:addFunds(side, tenp)
+							trigger.action.outTextForCoalition(side, '['..pname..'] ejected. +'..tenp..' credits (25% of earnings)', 5)
+							self.context.playerContributions[side][pname] = 0
+						end
+					end
+					
 					if (event.id==15) then  -- spawned
 						self.context.playerContributions[side][pname] = 0
 					end
@@ -526,10 +597,10 @@ do
 										earning = self.rewards.helicopter
 										trigger.action.outTextForGroup(groupid, 'Helicopter kill +'..earning..' credits', 5)
 									elseif targetType == Unit.Category.GROUND_UNIT then
-										if unit:hasAttribute('Infantry') and self.rewards.infantry then
+										if event.target:hasAttribute('Infantry') and self.rewards.infantry then
 											earning = self.rewards.infantry
 											trigger.action.outTextForGroup(groupid, 'Infantry kill +'..earning..' credits', 5)
-										elseif (unit:hasAttribute('SAM SR') or unit:hasAttribute('SAM TR')) and self.rewards.sam then
+										elseif (event.target:hasAttribute('SAM SR') or event.target:hasAttribute('SAM TR') or event.target:hasAttribute('IR Guided SAM')) and self.rewards.sam then
 											earning = self.rewards.sam
 											trigger.action.outTextForGroup(groupid, 'SAM kill +'..earning..' credits', 5)
 										else
@@ -556,7 +627,6 @@ do
 						if self.context.playerContributions[side][pname] and self.context.playerContributions[side][pname] > 0 then
 							for i,v in ipairs(self.context:getZones()) do
 								if side==v.side and Utils.isInZone(unit, v.zone) then
-									
 									trigger.action.outTextForGroup(groupid, '['..pname..'] landed at '..v.zone..'.\nWait 10 seconds to claim credits...', 5)
 									
 									local claimfunc = function(context, zone, player, unitname)
@@ -902,11 +972,13 @@ do
 						self:capture(crate:getCoalition())
 						if self.battleCommander.playerRewardsOn then
 							self.battleCommander:addFunds(self.side, self.battleCommander.rewards.crate)
+							trigger.action.outTextForCoalition(self.side,'Capture +'..self.battleCommander.rewards.crate..' credits',5)
 						end
 					elseif self.side == crate:getCoalition() then
 						self:upgrade()
 						if self.battleCommander.playerRewardsOn then
 							self.battleCommander:addFunds(self.side, self.battleCommander.rewards.crate)
+							trigger.action.outTextForCoalition(self.side,'Resupply +'..self.battleCommander.rewards.crate..' credits',5)
 						end
 					end
 					
@@ -1184,10 +1256,17 @@ do
 			end
 		end
 		
-		local choice = math.random(1, #canAfford)
-		
-		if math.random(1,100) > skipChance then
-			self.battleCommander:buyShopItem(self.side, canAfford[choice])
+		local dice = math.random(1,100)
+		if dice > self.skipChance then
+			for i=1,10,1 do
+				local choice = math.random(1, #canAfford)
+				local err = self.battleCommander:buyShopItem(self.side, canAfford[choice])
+				if not err then
+					break
+				else
+					canAfford[choice]=nil
+				end
+			end
 		end
 	end
 	

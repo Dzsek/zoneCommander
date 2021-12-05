@@ -30,7 +30,7 @@ farp = {
 	red = {"rInfantry", "rArmor", "rSam" }
 }
 
-special = {
+regularzone = {
 	blue = {"bInfantry", "bArmor", "bSamIR"},
 	red = {"rInfantry", "rArmor", "rSamIR" }
 }
@@ -91,17 +91,17 @@ flavor = {
 
 bc = BattleCommander:new()
 anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
-alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.alpha})
+alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.alpha})
 bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo, flavorText=flavor.bravo})
-charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.charlie})
+charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.charlie})
 convoy = ZoneCommander:new({zone='Convoy', side=1, level=3, upgrades=convoy, crates=cargoAccepts.general, flavorText=flavor.convoy})
 krymsk = ZoneCommander:new({zone='Krymsk', side=1, level=5, upgrades=airfield, crates=cargoAccepts.krymsk, flavorText=flavor.krymsk})
 oilfields = ZoneCommander:new({zone='Oil Fields', side=1, level=3, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.oilfields, income=2})
-radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=special, crates=cargoAccepts.general, flavorText=flavor.radio})
-delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.delta})
-factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=special, crates=cargoAccepts.factory, flavorText=flavor.factory, income=2})
+radio = ZoneCommander:new({zone='Radio Tower', side=1, level=1, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.radio})
+delta = ZoneCommander:new({zone='Delta', side=1, level=1, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.delta})
+factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=regularzone, crates=cargoAccepts.factory, flavorText=flavor.factory, income=2})
 samsite = ZoneCommander:new({zone='SAM Site', side=0, level=0, upgrades=specialSAM, crates=cargoAccepts.general, flavorText=flavor.samsite})
-foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=farp, crates=cargoAccepts.general, flavorText=flavor.foxtrot})
+foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.foxtrot})
 echo = ZoneCommander:new({zone='Echo', side=1, level=3, upgrades=farp, crates=cargoAccepts.echo, flavorText=flavor.echo})
 krasnodar = ZoneCommander:new({zone='Krasnodar', side=1, level=6, upgrades=specialKrasnodar, crates=cargoAccepts.general, flavorText=flavor.krasnodar})
 
@@ -289,16 +289,40 @@ bc:addFunds(1,0)
 bc:addFunds(2,0)
 
 Group.getByName('sead1'):destroy()
-bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 400, function(sender) 
+local seadTargetMenu = nil
+bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 300, function(sender) 
 	local gr = Group.getByName('sead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'SEAD mission still in progress'
 	end
 	mist.respawnGroup('sead1', true)
+	
+	if seadTargetMenu then
+		return 'Choose target zone from F10 menu'
+	end
+	
+	local launchAttack = function(target)
+		if Group.getByName('sead1') then
+			local err = bc:engageZone(target, 'sead1')
+			if err then
+				return err
+			end
+			
+			trigger.action.outTextForCoalition(2, 'F/A-18C Hornets engaging SAMs at '..target, 15)
+		else
+			trigger.action.outTextForCoalition(2, 'Group has left the area or has been destroyed', 15)
+		end
+		
+		seadTargetMenu = nil
+	end
+	
+	seadTargetMenu = bc:showTargetZoneMenu(2, 'SEAD Target', launchAttack, 1)
+	
+	trigger.action.outTextForCoalition(2, 'F/A-18C Hornets on route. Choose target zone from F10 menu', 15)
 end)
 
 Group.getByName('sweep1'):destroy()
-bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 250, function(sender) 
+bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 150, function(sender) 
 	local gr = Group.getByName('sweep1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Fighter sweep mission still in progress'
@@ -307,18 +331,44 @@ bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 250, function(sender)
 end)
 
 Group.getByName('cas1'):destroy()
+local casTargetMenu = nil
 bc:registerShopItem('cas1', 'F-4 Ground Attack', 300, function(sender) 
 	local gr = Group.getByName('cas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Ground attack mission still in progress'
 	end
+	
 	mist.respawnGroup('cas1', true)
+	
+	if casTargetMenu then
+		return 'Choose target zone from F10 menu'
+	end
+	
+	local launchAttack = function(target)
+		if casTargetMenu then
+			if Group.getByName('cas1') then
+				local err = bc:engageZone(target, 'cas1')
+				if err then
+					return err
+				end
+				
+				trigger.action.outTextForCoalition(2, 'F-4 Phantoms engaging groups at '..target, 15)
+			else
+				trigger.action.outTextForCoalition(2, 'Group has left the area or has been destroyed', 15)
+			end
+			
+			casTargetMenu = nil
+		end
+	end
+	
+	casTargetMenu = bc:showTargetZoneMenu(2, 'F-4 Target', launchAttack, 1)
+	
+	trigger.action.outTextForCoalition(2, 'F-4 Phantoms on route. Choose target zone from F10 menu', 15)
 end)
 
 bc:addMonitoredROE('cruise1')
 local cruiseMissileTargetMenu = nil
-
-bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 1500, function(sender)
+bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 800, function(sender)
 	if cruiseMissileTargetMenu then
 		return 'Choose target zone from F10 menu'
 	end
@@ -330,39 +380,45 @@ bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 1500, function(send
 				return err
 			end
 			
-			missionCommands.removeItemForCoalition(2, cruiseMissileTargetMenu)
 			cruiseMissileTargetMenu = nil
 			trigger.action.outTextForCoalition(2, 'Launching cruise missiles at '..target, 15)
 		end
 	end
 	
-	cruiseMissileTargetMenu = missionCommands.addSubMenuForCoalition(2, 'Cruise Missile Target')
-	local sub1
-	local zones = bc:getZones()
-	local count = 0
-	for i,v in ipairs(zones) do
-		if v.side == 1 then
-			count = count + 1
-			if count<10 then
-				missionCommands.addCommandForCoalition(2, v.zone, cruiseMissileTargetMenu, launchAttack, v.zone)
-			elseif count==10 then
-				sub1 = missionCommands.addSubMenu("More", cruiseMissileTargetMenu)
-				missionCommands.addCommandForCoalition(2, v.zone, sub1, launchAttack, v.zone)
-			else
-				missionCommands.addCommandForCoalition(2, v.zone, sub1, launchAttack, v.zone)
-			end
-		end
-	end
+	cruiseMissileTargetMenu = bc:showTargetZoneMenu(2, 'Cruise Missile Target', launchAttack, 1)
 	
 	trigger.action.outTextForCoalition(2, 'Cruise missiles ready. Choose target zone from F10 menu', 15)
 end)
 
-
+local upgradeMenu = nil
+bc:registerShopItem('upgradeZone', 'Resupply friendly Zone', 150, function(sender)
+	if upgradeMenu then
+		return 'Choose zone from F10 menu'
+	end
+	
+	local upgradeZone = function(target)
+		if upgradeMenu then
+			local zn = bc:getZoneByName(target)
+			if zn and zn.side==2 then
+				zn:upgrade()
+			else
+				return 'Zone not friendly'
+			end
+			
+			upgradeMenu = nil
+		end
+	end
+	
+	upgradeMenu = bc:showTargetZoneMenu(2, 'Select Zone to resupply', upgradeZone, 2)
+	
+	trigger.action.outTextForCoalition(2, 'Supplies prepared. Choose zone from F10 menu', 15)
+end)
 
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
 bc:addShopItem(2, 'cruiseAttack', -1)
+bc:addShopItem(2, 'upgradeZone', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()
@@ -399,7 +455,26 @@ Group.getByName('redmlrs1'):destroy()
 bc:registerShopItem('redmlrs1', 'spawn Red mlrs', 500, function(sender) 
 	local zn = bc:getZoneByName('Foxtrot')
 	if zn.side == 1 and zn.active then
-		if Group.getByName('redmlrs1') then
+		local gr = Group.getByName('redmlrs1')
+		if gr then
+			local full = true
+			for i,v in ipairs(gr:getUnits()) do
+				for i2,v2 in ipairs(v:getAmmo()) do
+					if v2.count < 3 then
+						full = false
+						break
+					end
+				end
+				
+				if not full then 
+					break
+				end
+			end
+			
+			if full and gr:getSize()==gr:getInitialSize() then
+				return 'ammo full'
+			end
+			
 			trigger.action.outTextForCoalition(2,'The enemy has resupplied its artillery near Foxtrot',15)
 		else
 			trigger.action.outTextForCoalition(2,'The enemy has deployed artillery near Foxtrot',15)
@@ -449,7 +524,7 @@ bc:addShopItem(1, 'redcap1', -1)
 bc:addShopItem(1, 'redsead1', -1)
 bc:addShopItem(1, 'redmlrs1', -1)
 
-bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=10*60, skipChance = 15})
+bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance = 5})
 bugetAI:init()
 --end red support
 
