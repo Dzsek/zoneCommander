@@ -103,7 +103,7 @@ factory = ZoneCommander:new({zone='Factory', side=1, level=1, upgrades=regularzo
 samsite = ZoneCommander:new({zone='SAM Site', side=0, level=0, upgrades=specialSAM, crates=cargoAccepts.general, flavorText=flavor.samsite})
 foxtrot = ZoneCommander:new({zone='Foxtrot', side=1, level=3, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.foxtrot})
 echo = ZoneCommander:new({zone='Echo', side=1, level=3, upgrades=farp, crates=cargoAccepts.echo, flavorText=flavor.echo})
-krasnodar = ZoneCommander:new({zone='Krasnodar', side=1, level=6, upgrades=specialKrasnodar, crates=cargoAccepts.general, flavorText=flavor.krasnodar})
+krasnodar = ZoneCommander:new({zone='Krasnodar', side=1, level=6, upgrades=specialKrasnodar, crates=cargoAccepts.general, flavorText=flavor.krasnodar, income=1})
 
 radio:addCriticalObject('RadioTower')
 samsite:addCriticalObject('CommandCenter')
@@ -519,10 +519,85 @@ bc:registerShopItem('redmlrs1fire', 'fire red mlrs', 300, function(sender)
 	end
 end)
 
+
+Group.getByName('intercept1'):destroy()
+Group.getByName('intercept2'):destroy()
+local cargoDieEvent = nil
+bc:registerShopItem('intercept1', 'Red intercept', 600, function(sender) 
+	local grt = Group.getByName('intercept1')
+	local gre = Group.getByName('intercept2')
+	if gre and gre:getSize()>0 and gre:getController():hasTask() then 
+		return 'still alive'
+	end
+	
+	if grt and grt:getSize()>0 and grt:getController():hasTask() then 
+		return 'still alive'
+	end
+	
+	mist.respawnGroup('intercept1', true)
+	mist.respawnGroup('intercept2', true)
+	
+	if not cargoDieEvent then
+		local cargoPlaneDied = function(event)
+			if event.id==28 then
+				if event.initiator and event.initiator:getCoalition()==2 and event.target then
+					if event.target:getGroup():getName()=='intercept1' then
+						trigger.action.outTextForCoalition(2,'Enemy cargo transport destroyed.\n+250 credits',15)
+						bc:addFunds(2,250)
+						mist.removeEventHandler(cargoDieEvent)
+						cargoDieEvent = nil
+					end
+				end
+			end
+		end
+		
+		cargoDieEvent = mist.addEventHandler(cargoPlaneDied)
+	end
+	
+	trigger.action.outTextForCoalition(2,'Enemy cargo transport has entered the airspace from the south.',15)
+end)
+
+Group.getByName('escort1'):destroy()
+Group.getByName('antiescort1'):destroy()
+Group.getByName('antiescort2'):destroy()
+bc:registerShopItem('escort1', 'Red antiescort', 600, function(sender) 
+	local gr = Group.getByName('escort1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'still alive'
+	end
+	
+	mist.respawnGroup('escort1', true)
+	
+	local spawnIntercept = function(groupname)
+		if Group.getByName('escort1') then
+			local g = Group.getByName(groupname)
+			if not g then
+				if math.random(1,100) > 30 then
+					if math.random(1,100) > 50 then
+						trigger.action.outTextForCoalition(2,'Enemy interceptor spotted heading for our cargo transport.',15)
+					else
+						trigger.action.outTextForCoalition(2,'The enemy has launched an intercept mission against our cargo transport',15)
+					end
+					mist.respawnGroup(groupname, true)
+				end
+			end
+		end
+	end
+	
+	local timers = {math.random(3*60,15*60), math.random(8*60,15*60)}
+	mist.scheduleFunction(spawnIntercept, {'antiescort1'}, timer.getTime()+timers[1])
+	mist.scheduleFunction(spawnIntercept, {'antiescort2'}, timer.getTime()+timers[2])
+	
+	
+	trigger.action.outTextForCoalition(2,'Friendly cargo transport has entered the airspace from the south.',15)
+end)
+
 bc:addShopItem(1, 'redcas1', -1)
 bc:addShopItem(1, 'redcap1', -1)
 bc:addShopItem(1, 'redsead1', -1)
 bc:addShopItem(1, 'redmlrs1', -1)
+bc:addShopItem(1, 'intercept1', -1)
+bc:addShopItem(1, 'escort1', -1)
 
 bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance = 5})
 bugetAI:init()

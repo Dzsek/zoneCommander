@@ -1124,7 +1124,7 @@ do
 	
 	function GroupCommander:init()
 		self.state = 'inhangar'
-		self.lastStateTime = timer.getAbsTime()
+		self.lastStateTime = timer.getAbsTime() + math.random(60,30*60)
 		local gr = Group.getByName(self.name)
 		if gr then
 			self.side = gr:getCoalition()
