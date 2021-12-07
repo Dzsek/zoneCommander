@@ -140,3 +140,49 @@ Fourth parameter is a number that specifies how many times this trigger can run.
 Example:
 
 `exampleZone:registerTrigger('eventname', function(event, sender) trigger.action.outText('event triggered',5) end, 'triggerid', 4)`
+
+## Groups
+
+### ZoneCommander:addGroup(groupcommander)
+
+Adds a GroupCommander object to the zone
+
+Example:
+
+`exampleZone:addGroup(examplegroup)`
+
+### ZoneCommander:addGroups(listofgroups)
+
+Adds several groups to the zone at once.
+
+Example:
+
+`exampleZone:addGroups({group1, group2, group3})`
+
+# GroupCommander
+
+## Constructor
+
+### GroupCommander:new(parameters)
+
+Creates a new group commander. Parameter should be a single table in the folowing format:
+
+```
+{
+  name = 'groupname', -- name of group as defined in mission editor
+  mission = 'supply', -- type of mission the group should execute, available mission types defined below
+  targetzone = 'zonename', --zonename that should be tracked as the target for this group
+}
+```
+
+Mission types:
+
+- 'supply' - will spawn if target zone is neutral or friendly
+- 'patrol' - will spawn if target zone is friendly
+- 'attack' - will spawn if target zone is hostile
+
+Groups only spawn if the zone they were added to is friendly to them.
+
+Example:
+
+`group1 = GroupCommander:new({name='group1', mission='attack', targetzone='FARP1'})`
