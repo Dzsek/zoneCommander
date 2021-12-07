@@ -89,6 +89,45 @@ Example:
 
 `bc:removeShopItem(coalition, 'exampleitemid)`
 
+### BattleCommander:startRewardPlayerContribution(basereward, overrides)
+
+Will start rewarding credits for player actions.
+
+First parameter is the base ammount of credits to reward for each kill
+
+Second parameter is used to override the base reward for specific situations, and is a table of the following format:
+
+```
+{
+  ground = 15, -- base pay for any unit classified as ground and not belonging to any other category
+  infantry = 5, --ammount to pay for ground units classified as Infantry
+  sam = 30, --ammount to pay for any ground unit having the attributes of ir sam, search radar or track radar
+  airplane = 30, -- ammount to pay for any airplanes
+  helicopter = 40, -- ammount to pay for helicopters
+  ship = 200, -- ammount to pay for ships
+  crate = 100 -- ammount to pay for crates delivered to zones
+}
+```
+
+All of the rewards except the crate deliveries will only be added to the coalition account once players land at a friendly zone.
+
+Respawning or changing slots will reset the ammount of unclaimed credits a player has.
+
+Ejecting will instantly redeem 25% of the unclaimed credits.
+
+Example:
+
+`bc:startRewardPlayerContribution(15,{infantry = 5, ground = 15, sam = 30, airplane = 30, ship = 200, helicopter=40, crate=100})`
+
+### BattleCommander:init()
+
+Starts the whole monitoring and tracking of every zone and group.
+Should be called after everything all the groups and zones have been set up.
+
+Example:
+
+`bc:init()`
+
 # ZoneCommander
 
 ## Constructor
@@ -172,7 +211,7 @@ Example:
 
 ### GroupCommander:new(parameters)
 
-Creates a new group commander. Parameter should be a single table in the folowing format:
+Creates a new group commander. Parameter should be a single table in the following format:
 
 ```
 {
@@ -193,3 +232,37 @@ Groups only spawn if the zone they were added to is friendly to them.
 Example:
 
 `group1 = GroupCommander:new({name='group1', mission='attack', targetzone='FARP1'})`
+
+# BugetCommander
+
+Spends the credits of a coalition on available support items.
+
+## Constructor
+
+### BugetCommander:new(parameters)
+
+Creates a new buget commander. Parameter should be a single table in the following format:
+
+```
+{
+  battleCommander = bc, -- reference to the battle commander whos account it should manage
+  side = 1, -- coalition whos accounts to manage, 1=Red and 2=Blue
+  decissionFrequency = 40, -- how often it should attempt buying an item, in seconds
+  decissionVariance = 30, -- will make decissions be delayed up to this many seconds, decided randomly from the range 1 to *decissionVariance*
+  skipChance = 5 -- percent chance that the decission will be skipped entirely
+}
+```
+
+Example:
+
+`bugetAI = BugetCommander:new({battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance=5}) `
+
+This will take control of the red coalition buget, and every 30 minutes (decissionFrequency) it will schedule an item to be bought after a random ammount of seconds between 1 second and 15 minutes (decissionVariance). When this time ellapses it will roll a 100 sided dice and if it lands on a number higher then 5 (skipChance), it will make a list of all items it can afford, and attempt buying a random item from that list. Buying an item can fail due to condition specified in the item action. In this case it will attempt buying another random item. This will be repeated up to 10 times or until an item is succesfully bought.
+
+### BugetCommander:init()
+
+Will start the buget commander monitoring and decission process
+
+Example:
+
+`bugetAI:init()`
