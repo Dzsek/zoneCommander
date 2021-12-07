@@ -21,7 +21,7 @@ Example:
 
 ## Connections
 
-###BattleCommander:addConnection(from, to)
+### BattleCommander:addConnection(from, to)
 
 Draws a line between two zones. Does not have any functional value, only visual. Use to help players see where supplies and attacks might be coming from, and to guide player progression.
 
@@ -88,9 +88,9 @@ Example:
 
 ## Constructor
 
-Handles everything related to a single Zone. You will need to create one of these for each Zone you want in your mission.
+### ZoneCommander:new(parameters)
 
-`exampleZone = ZoneCommander:new(parameters)`
+Handles everything related to a single Zone. You will need to create one of these for each Zone you want in your mission.
 
 The parameters table should have the following format:
 
@@ -106,15 +106,21 @@ The parameters table should have the following format:
   }
 ```
 
+Example:
+`exampleZone = ZoneCommander:new(parameters)`
+
 ## Critical objects
 
-`exampleZone:addCriticalObject('staticobjectname')`
+### ZoneCommander:addCriticalObject(staticobjectname)
 
 Adds the name of a StaticObject to monitor within the mission. If all of these objects get destroyed, the zone will enter a disabled state, meaning it will no longer be capturable or upgradeable, and will not provide any benefits. Any groups that exist at the moment of distruction will remain, but will no longer be repaireable by resupply events.
 
+Example:
+`exampleZone:addCriticalObject('staticobjectname')`
+
 ## Triggers
 
-`exampleZone:registerTrigger('eventname', function(event, sender) trigger.action.outText('event triggered',5) end, 'triggerid', 4)`
+### ZoneCommander:registerTrigger(eventtype, action, id, *runcount*)
 
 Registers a function to run when a zone changes state.
 
@@ -131,4 +137,5 @@ Third parameter is a string id that is used to keep track of how many times the 
 
 Fourth parameter is a number that specifies how many times this trigger can run. Once it has run the specified number of times, the trigger will stop executing. Leave out this parameter to let the event run unlimited number of times.
 
-
+Example:
+`exampleZone:registerTrigger('eventname', function(event, sender) trigger.action.outText('event triggered',5) end, 'triggerid', 4)`
