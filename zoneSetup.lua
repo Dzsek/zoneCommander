@@ -285,8 +285,15 @@ convoy:registerTrigger('lost', function (event, sender)
 	trigger.action.outTextForCoalition(2, message, 15)
 end, 'convoyLost', 1)
 
-bc:addFunds(1,0)
-bc:addFunds(2,0)
+local showCredIncrease = function(event, sender)
+	trigger.action.outTextForCoalition(sender.side, '+'..math.floor(sender.income*360)..' Credits/Hour', 5)
+end
+
+oilfields:registerTrigger('captured', showCredIncrease, 'oilfieldcaptured')
+factory:registerTrigger('captured', showCredIncrease, 'factorycaptured')
+
+--bc:addFunds(1,0)
+--bc:addFunds(2,0)
 
 Group.getByName('sead1'):destroy()
 local seadTargetMenu = nil
@@ -414,11 +421,43 @@ bc:registerShopItem('upgradeZone', 'Resupply friendly Zone', 150, function(sende
 	trigger.action.outTextForCoalition(2, 'Supplies prepared. Choose zone from F10 menu', 15)
 end)
 
+Group.getByName('jtacDrone'):destroy()
+local jtacTargetMenu = nil
+local jtacInfoMenu = nil
+drone = JTAC:new({name = 'jtacDrone'})
+bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender)
+	
+	if jtacTargetMenu then
+		return 'Choose target zone from F10 menu'
+	end
+	
+	local spawnAndOrbit = function(target)
+		if jtacTargetMenu then
+			local zn = bc:getZoneByName(target)
+			drone:deployAtZone(zn)
+			
+			if not jtacInfoMenu then
+				jtacInfoMenu = missionCommands.addCommandForCoalition(2, 'JTAC target report', nil, function(dr)
+					dr:printTarget(true)
+				end, drone)
+			end
+			
+			trigger.action.outTextForCoalition(2, 'Predator drone deployed over '..target, 15)
+			jtacTargetMenu = nil
+		end
+	end
+	
+	jtacTargetMenu = bc:showTargetZoneMenu(2, 'Deploy JTAC', spawnAndOrbit, 1)
+	
+	trigger.action.outTextForCoalition(2, 'Choose which zone to deploy JTAC at from F10 menu', 15)
+end)
+
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
 bc:addShopItem(2, 'cruiseAttack', -1)
 bc:addShopItem(2, 'upgradeZone', -1)
+bc:addShopItem(2, 'jtac1', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()

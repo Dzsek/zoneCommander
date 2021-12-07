@@ -127,6 +127,174 @@ do
 	end
 end
 
+JTAC = {}
+do
+	--{name = 'groupname'}
+	function JTAC:new(obj)
+		obj = obj or {}
+		obj.lasers = {tgt=nil, ir=nil}
+		obj.target = nil
+		obj.timerReference = nil
+		obj.tgtzone = nil
+		setmetatable(obj, self)
+		self.__index = self
+		return obj
+	end
+	
+	function JTAC:setTarget(unit)
+		
+		if self.lasers.tgt then
+			self.lasers.tgt:destroy()
+			self.lasers.tgt = nil
+		end
+		
+		if self.lasers.ir then
+			self.lasers.ir:destroy()
+			self.lasers.ir = nil
+		end
+		
+		local me = Group.getByName(self.name)
+		if not me then return end
+		
+		local pnt = unit:getPoint()
+		self.lasers.tgt = Spot.createLaser(me:getUnit(1), { x = 0, y = 2.0, z = 0 }, pnt, 1688)
+		self.lasers.ir = Spot.createInfraRed(me:getUnit(1), { x = 0, y = 2.0, z = 0 }, pnt)
+		
+		self.target = unit:getName()
+		self:printTarget()
+	end
+	
+	function JTAC:printTarget(makeitlast)
+		local toprint = nil
+		if self.target and self.tgtzone then
+			local tgtunit = Unit.getByName(self.target)
+			if tgtunit then
+				local pnt = tgtunit:getPoint()
+				local tgttype = tgtunit:getTypeName()
+				toprint = 'Lasing '..tgttype..' at '..self.tgtzone.zone..'\nCode: 1688\n'
+				local lat,lon,alt = coord.LOtoLL(pnt)
+				local mgrs = coord.LLtoMGRS(coord.LOtoLL(pnt))
+				toprint = toprint..'\nDDM:  '.. mist.tostringLL(lat,lon,3)
+				toprint = toprint..'\nDMS:  '.. mist.tostringLL(lat,lon,2,true)
+				toprint = toprint..'\nMGRS: '.. mist.tostringMGRS(mgrs, 5)
+				toprint = toprint..'\n\nAlt: '..math.floor(alt)..'m'..' | '..math.floor(alt*3.280839895)..'ft'
+			else
+				makeitlast = false
+				toprint = 'No Target'
+			end
+		else
+			makeitlast = false
+			toprint = 'No target'
+		end
+		
+		local gr = Group.getByName(self.name)
+		if makeitlast then
+			trigger.action.outTextForCoalition(gr:getCoalition(), toprint, 60)
+		else
+			trigger.action.outTextForCoalition(gr:getCoalition(), toprint, 10)
+		end
+	end
+	
+	function JTAC:clearTarget()
+		self.target = nil
+	
+		if self.lasers.tgt then
+			self.lasers.tgt:destroy()
+		end
+		
+		if self.lasers.ir then
+			self.lasers.ir:destroy()
+		end
+		
+		if self.timerReference then
+			mist.removeFunction(self.timerReference)
+			self.timerReference = nil
+		end
+	end
+	
+	function JTAC:searchTarget()
+		local gr = Group.getByName(self.name)
+		if gr then
+			if self.tgtzone and self.tgtzone.side~=0 and self.tgtzone.side~=gr:getCoalition() then
+				local viabletgts = {}
+				for i,v in pairs(self.tgtzone.built) do
+					local tgtgr = Group.getByName(v)
+					if tgtgr and tgtgr:getSize()>0 then
+						for i2,v2 in ipairs(tgtgr:getUnits()) do
+							if v2:getLife()>1 then
+								table.insert(viabletgts, v2)
+							end
+						end
+					end
+				end
+				
+				if #viabletgts>0 then
+					local chosentgt = math.random(1, #viabletgts)
+					self:setTarget(viabletgts[chosentgt])
+				else
+					self:clearTarget()
+				end
+			else
+				self:clearTarget()
+				
+				if self.tgtzone.side==0 or not self.tgtzone.active or self.tgtzone.side == gr:getCoalition() then
+					gr:destroy()
+				end
+			end
+		end
+	end
+	
+	function JTAC:searchIfNoTarget()
+		if Group.getByName(self.name) then
+			if not self.target or not Unit.getByName(self.target) then
+				self:searchTarget()
+			end
+		else
+			self:clearTarget()
+		end
+	end
+	
+	function JTAC:deployAtZone(zoneCom)
+		self.tgtzone = zoneCom
+		local p = trigger.misc.getZone(self.tgtzone.zone).point
+		local vars = {}
+		vars.gpName = self.name
+		vars.action = 'respawn' 
+		vars.point = {x=p.x, y=5000, z = p.z}
+		mist.teleportToPoint(vars)
+		
+		mist.scheduleFunction(self.setOrbit, {self, self.tgtzone.zone, p}, timer.getTime()+1)
+		
+		if not self.timerReference then
+			self.timerReference = mist.scheduleFunction(self.searchIfNoTarget, {self}, timer.getTime()+10, 10)
+		end
+	end
+	
+	function JTAC:setOrbit(zonename, point)
+		local gr = Group.getByName(self.name)
+		if not gr then 
+			return
+		end
+		
+		local cnt = gr:getController()
+		cnt:setCommand({ 
+			id = 'SetInvisible', 
+			params = { 
+				value = true 
+			} 
+		})
+  
+		cnt:setTask({ 
+			id = 'Orbit', 
+			params = { 
+				pattern = 'Circle',
+				point = {x = point.x, y=point.z},
+				altitude = 5000
+			} 
+		})
+	end
+end
+
 GlobalSettings = {}
 do
 	GlobalSettings.blockedDespawnTime = 10*60 --used to despawn aircraft that are stuck taxiing for some reason
@@ -137,6 +305,23 @@ do
 		patrol = { dead=40*60, hangar=2*60},
 		attack = { dead=40*60, hangar=2*60}
 	}
+	
+	function GlobalSettings.resetDifficultyScaling()
+		GlobalSettings.respawnTimers = {
+			supply = { dead=40*60, hangar=25*60},
+			patrol = { dead=40*60, hangar=2*60},
+			attack = { dead=40*60, hangar=2*60}
+		}
+	end
+	
+	function GlobalSettings.setDifficultyScaling(value)
+		GlobalSettings.resetDifficultyScaling()
+		for i,v in pairs(GlobalSettings.respawnTimers) do
+			for i2,v2 in pairs(v) do
+				GlobalSettings.respawnTimers[i][i2] = math.floor(GlobalSettings.respawnTimers[i][i2] * value)
+			end
+		end
+	end
 end
 
 BattleCommander = {}
