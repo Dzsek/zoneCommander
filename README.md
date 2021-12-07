@@ -119,6 +119,8 @@ Example:
 
 `bc:startRewardPlayerContribution(15,{infantry = 5, ground = 15, sam = 30, airplane = 30, ship = 200, helicopter=40, crate=100})`
 
+## Starting everything
+
 ### BattleCommander:init()
 
 Starts the whole monitoring and tracking of every zone and group.
