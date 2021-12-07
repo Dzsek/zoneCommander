@@ -138,4 +138,5 @@ Third parameter is a string id that is used to keep track of how many times the 
 Fourth parameter is a number that specifies how many times this trigger can run. Once it has run the specified number of times, the trigger will stop executing. Leave out this parameter to let the event run unlimited number of times.
 
 Example:
+
 `exampleZone:registerTrigger('eventname', function(event, sender) trigger.action.outText('event triggered',5) end, 'triggerid', 4)`
