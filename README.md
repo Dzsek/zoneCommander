@@ -4,25 +4,33 @@
 
 ## Constructor
 
+### BattleCommander:new()
+
 The BattleCommander object is the base object that monitors and runs the whole mission. You only need a single instance of this.
 
+Example:
 `bc = BattleCommander:new()`
 
 ## Add Zone
 
-`bc:addZone(exampleZone)`
-
+### BattleCommander:addZone(zone)
 Registers a ZoneCommander object, and enables state tracking and updates for said zone.
+
+Example:
+`bc:addZone(exampleZone)`
 
 ## Connections
 
-`bc:addConnection('zonename1', 'zonename2')`
+###BattleCommander:addConnection(from, to)
 
 Draws a line between two zones. Does not have any functional value, only visual. Use to help players see where supplies and attacks might be coming from, and to guide player progression.
 
+Example:
+`bc:addConnection('zonename1', 'zonename2')`
+
 ## Credits and Support items
 
-`bc:addFunds(coalition, ammount)`
+### BattleCommander:addFunds(coalition, ammount)
 
 Adds the specified ammount of credits to the specified coalition. 
 
@@ -30,11 +38,10 @@ Coalition parameters must be set to 1 for Red coalition and 2 for Blue coalition
 
 Ammount can be any number. If negative, it will substract the credits from the account.
 
-```
-bc:registerShopItem('exampleid', 'display name', cost, function(sender) 
-  --your code here 
-end)
-```
+Example:
+`bc:addFunds(coalition, ammount)`
+
+### BattleCommander:registerShopItem(id, displayname, cost, action)
 
 Defines an item for the support shop. Note this does not make it available yet only defines the properties of the support item.
 
@@ -46,7 +53,14 @@ Third parameter should be a number specifying the price of the item. When bought
 
 Fourth parameter is a function to execute whenever the item is succesfully bought. First parameter of the function will always be an object describing the shop item in the format { name='examplename', cost=100, action = functionobject }. You can return a string specifying an error, or just *true* in order to prevent item from being bought in case some conditions are required. This will prevent the cost and stock being deducted.
 
-`bc:addShopItem(coalition, 'exampleitemid', ammount)`
+Example:
+```
+bc:registerShopItem('exampleid', 'display name', cost, function(sender) 
+  --your code here 
+end)
+```
+
+### BattleCommander:addShopItem(coalition, id, ammount)
 
 Will make an item available for the specified coalition.
 
@@ -56,13 +70,19 @@ Second parameter is the string that identifies a previously registered item.
 
 Third parameter is a number specifying the available stock for this item. Once the item has been bought the specified ammount of times it will be removed from the shop menu. A value of -1 will make this available indefinitely.
 
-`bc:removeShopItem(coalition, 'exampleitemid)`
+Example:
+`bc:addShopItem(coalition, 'exampleitemid', ammount)`
+
+### BattleCommander:removeShopItem(coalition, id)
 
 Removes an item from the specified coalition shop menu, regardless of remaining stock.
 
 First parameter is coalition to remove from. 1 for Red, 2 for Blue.
 
 Second parameter is the string that identified a previously registered item.
+
+Example:
+`bc:removeShopItem(coalition, 'exampleitemid)`
 
 # ZoneCommander
 
