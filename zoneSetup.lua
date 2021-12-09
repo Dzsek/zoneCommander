@@ -461,7 +461,7 @@ bc:addShopItem(2, 'jtac1', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()
-bc:registerShopItem('redcas1', 'Red Cas', 300, function(sender) 
+bc:registerShopItem('redcas1', 'Red Cas', 400, function(sender) 
 	local gr = Group.getByName('redcas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -471,7 +471,7 @@ bc:registerShopItem('redcas1', 'Red Cas', 300, function(sender)
 end)
 
 Group.getByName('redcap1'):destroy()
-bc:registerShopItem('redcap1', 'Red Cap', 300, function(sender) 
+bc:registerShopItem('redcap1', 'Red Cap', 400, function(sender) 
 	local gr = Group.getByName('redcap1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -481,7 +481,7 @@ bc:registerShopItem('redcap1', 'Red Cap', 300, function(sender)
 end)
 
 Group.getByName('redsead1'):destroy()
-bc:registerShopItem('redsead1', 'Red Sead', 300, function(sender) 
+bc:registerShopItem('redsead1', 'Red Sead', 500, function(sender) 
 	local gr = Group.getByName('redsead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -638,7 +638,7 @@ bc:addShopItem(1, 'redmlrs1', -1)
 bc:addShopItem(1, 'intercept1', -1)
 bc:addShopItem(1, 'escort1', -1)
 
-bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance = 5})
+bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=40*60, decissionVariance=20*60, skipChance = 10})
 bugetAI:init()
 --end red support
 

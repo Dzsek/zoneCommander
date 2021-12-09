@@ -210,6 +210,11 @@ do
 			mist.removeFunction(self.timerReference)
 			self.timerReference = nil
 		end
+		
+		local gr = Group.getByName(self.name)
+		if gr and self.tgtzone.side==0 or not self.tgtzone.active or self.tgtzone.side == gr:getCoalition() then
+			gr:destroy()
+		end
 	end
 	
 	function JTAC:searchTarget()
@@ -236,10 +241,6 @@ do
 				end
 			else
 				self:clearTarget()
-				
-				if self.tgtzone.side==0 or not self.tgtzone.active or self.tgtzone.side == gr:getCoalition() then
-					gr:destroy()
-				end
 			end
 		end
 	end
@@ -821,6 +822,8 @@ do
 												context:addFunds(zone.side, context.playerContributions[zone.side][player])
 												trigger.action.outTextForCoalition(zone.side, '['..player..'] redeemed '..context.playerContributions[zone.side][player]..' credits', 5)
 												context.playerContributions[zone.side][player] = 0
+												
+												context:saveToDisk() -- save persistance data to enable ending mission after cashing money
 											end
 										end
 									end
@@ -950,7 +953,7 @@ do
 		for i,v in ipairs(self.triggers) do
 			if v.eventType == eventType then
 				if not v.timesToRun or v.hasRun < v.timesToRun then
-					v.action(eventType, self)
+					v.action(v,self)
 					v.hasRun = v.hasRun + 1
 				end
 			end
