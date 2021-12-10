@@ -770,7 +770,7 @@ do
 					end
 					
 					if (event.id==28) then --killed unit
-						if side ~= event.target:getCoalition() then
+						if event.target.getCoalition and side ~= event.target:getCoalition() then
 							if self.context.playerContributions[side][pname] ~= nil then
 								if event.target:getCategory() == Object.Category.UNIT then
 									local targetType = event.target:getDesc().category

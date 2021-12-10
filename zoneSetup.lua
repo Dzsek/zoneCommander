@@ -297,7 +297,7 @@ factory:registerTrigger('captured', showCredIncrease, 'factorycaptured')
 
 Group.getByName('sead1'):destroy()
 local seadTargetMenu = nil
-bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 300, function(sender) 
+bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 200, function(sender) 
 	local gr = Group.getByName('sead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'SEAD mission still in progress'
@@ -339,7 +339,7 @@ end)
 
 Group.getByName('cas1'):destroy()
 local casTargetMenu = nil
-bc:registerShopItem('cas1', 'F-4 Ground Attack', 300, function(sender) 
+bc:registerShopItem('cas1', 'F-4 Ground Attack', 250, function(sender) 
 	local gr = Group.getByName('cas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Ground attack mission still in progress'
@@ -382,7 +382,7 @@ bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 800, function(sende
 	
 	local launchAttack = function(target)
 		if cruiseMissileTargetMenu then
-			local err = bc:fireAtZone(target, 'cruise1', true, 6)
+			local err = bc:fireAtZone(target, 'cruise1', true, 8)
 			if err then
 				return err
 			end
