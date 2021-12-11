@@ -200,10 +200,12 @@ do
 	
 		if self.lasers.tgt then
 			self.lasers.tgt:destroy()
+			self.lasers.tgt = nil
 		end
 		
 		if self.lasers.ir then
 			self.lasers.ir:destroy()
+			self.lasers.ir = nil
 		end
 		
 		if self.timerReference then
@@ -592,10 +594,25 @@ do
 				return 'No targets found within zone'
 			end
 			
+			local selected = {}
 			for i=1,ammount,1 do
+				if #units == 0 then 
+					break
+				end
+				
 				local tgt = math.random(1,#units)
 				
-				local unt = units[tgt]
+				table.insert(selected, units[tgt])
+				table.remove(units, tgt)
+			end
+			
+			while #selected < ammount do
+				local ind = math.random(1,#selected)
+				table.insert(selected, selected[ind])
+			end
+			
+			for i,v in ipairs(selected) do
+				local unt = v
 				if unt then
 					local target = {}
 					target.x = unt:getPosition().p.x

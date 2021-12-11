@@ -297,7 +297,7 @@ factory:registerTrigger('captured', showCredIncrease, 'factorycaptured')
 
 Group.getByName('sead1'):destroy()
 local seadTargetMenu = nil
-bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 200, function(sender) 
+bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 250, function(sender) 
 	local gr = Group.getByName('sead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'SEAD mission still in progress'
@@ -339,7 +339,7 @@ end)
 
 Group.getByName('cas1'):destroy()
 local casTargetMenu = nil
-bc:registerShopItem('cas1', 'F-4 Ground Attack', 250, function(sender) 
+bc:registerShopItem('cas1', 'F-4 Ground Attack', 400, function(sender) 
 	local gr = Group.getByName('cas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Ground attack mission still in progress'
@@ -398,7 +398,7 @@ bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 800, function(sende
 end)
 
 local upgradeMenu = nil
-bc:registerShopItem('upgradeZone', 'Resupply friendly Zone', 150, function(sender)
+bc:registerShopItem('upgradeZone', 'Resupply friendly Zone', 200, function(sender)
 	if upgradeMenu then
 		return 'Choose zone from F10 menu'
 	end
@@ -424,6 +424,7 @@ end)
 Group.getByName('jtacDrone'):destroy()
 local jtacTargetMenu = nil
 local jtacInfoMenu = nil
+local jtacNextTGTMenu = nil
 drone = JTAC:new({name = 'jtacDrone'})
 bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender)
 	
@@ -438,7 +439,25 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 			
 			if not jtacInfoMenu then
 				jtacInfoMenu = missionCommands.addCommandForCoalition(2, 'JTAC target report', nil, function(dr)
-					dr:printTarget(true)
+					if Group.getByName(dr.name) then
+						dr:printTarget(true)
+					else
+						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
+						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
+						jtacInfoMenu = nil
+						jtacNextTGTMenu = nil
+					end
+				end, drone)
+				
+				jtacNextTGTMenu = missionCommands.addCommandForCoalition(2, 'JTAC Next Target', nil, function(dr)
+					if Group.getByName(dr.name) then
+						dr:searchTarget()
+					else
+						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
+						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
+						jtacInfoMenu = nil
+						jtacNextTGTMenu = nil
+					end
 				end, drone)
 			end
 			
@@ -455,7 +474,7 @@ end)
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
-bc:addShopItem(2, 'cruiseAttack', -1)
+bc:addShopItem(2, 'cruiseAttack', 12)
 bc:addShopItem(2, 'upgradeZone', -1)
 bc:addShopItem(2, 'jtac1', -1)
 
@@ -579,7 +598,7 @@ bc:registerShopItem('intercept1', 'Red intercept', 600, function(sender)
 	if not cargoDieEvent then
 		local cargoPlaneDied = function(event)
 			if event.id==28 then
-				if event.initiator and event.initiator:getCoalition()==2 and event.target then
+				if event.initiator and event.initiator:getCoalition()==2 and event.target and event.target.getGroup then
 					if event.target:getGroup():getName()=='intercept1' then
 						trigger.action.outTextForCoalition(2,'Enemy cargo transport destroyed.\n+250 credits',15)
 						bc:addFunds(2,250)
@@ -638,7 +657,7 @@ bc:addShopItem(1, 'redmlrs1', -1)
 bc:addShopItem(1, 'intercept1', -1)
 bc:addShopItem(1, 'escort1', -1)
 
-bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=40*60, decissionVariance=20*60, skipChance = 10})
+bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance = 10})
 bugetAI:init()
 --end red support
 
