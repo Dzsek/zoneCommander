@@ -795,29 +795,29 @@ do
 									
 									if targetType == Unit.Category.AIRPLANE and self.rewards.airplane then
 										earning = self.rewards.airplane
-										trigger.action.outTextForGroup(groupid, 'Aircraft kill +'..earning..' credits', 5)
+										trigger.action.outTextForGroup(groupid, '['..pname..'] Aircraft kill +'..earning..' credits', 5)
 									elseif targetType == Unit.Category.HELICOPTER and self.rewards.helicopter then
 										earning = self.rewards.helicopter
-										trigger.action.outTextForGroup(groupid, 'Helicopter kill +'..earning..' credits', 5)
+										trigger.action.outTextForGroup(groupid, '['..pname..'] Helicopter kill +'..earning..' credits', 5)
 									elseif targetType == Unit.Category.GROUND_UNIT then
 										if event.target:hasAttribute('Infantry') and self.rewards.infantry then
 											earning = self.rewards.infantry
-											trigger.action.outTextForGroup(groupid, 'Infantry kill +'..earning..' credits', 5)
+											trigger.action.outTextForGroup(groupid, '['..pname..'] Infantry kill +'..earning..' credits', 5)
 										elseif (event.target:hasAttribute('SAM SR') or event.target:hasAttribute('SAM TR') or event.target:hasAttribute('IR Guided SAM')) and self.rewards.sam then
 											earning = self.rewards.sam
-											trigger.action.outTextForGroup(groupid, 'SAM kill +'..earning..' credits', 5)
+											trigger.action.outTextForGroup(groupid, '['..pname..'] SAM kill +'..earning..' credits', 5)
 										else
 											earning = self.rewards.ground
-											trigger.action.outTextForGroup(groupid, 'Ground kill +'..earning..' credits', 5)
+											trigger.action.outTextForGroup(groupid, '['..pname..'] Ground kill +'..earning..' credits', 5)
 										end
 									elseif targetType == Unit.Category.SHIP and self.rewards.ship then
 										earning = self.rewards.ship
-										trigger.action.outTextForGroup(groupid, 'Ship kill +'..earning..' credits', 5)
+										trigger.action.outTextForGroup(groupid, '['..pname..'] Ship kill +'..earning..' credits', 5)
 									elseif targetType == Unit.Category.STRUCTURE and self.rewards.structure then
 										earning = self.rewards.structure
-										trigger.action.outTextForGroup(groupid, 'Structure kill +'..earning..' credits', 5)
+										trigger.action.outTextForGroup(groupid, '['..pname..'] Structure kill +'..earning..' credits', 5)
 									else
-										trigger.action.outTextForGroup(groupid, 'Unit kill +'..earning..' credits', 5)
+										trigger.action.outTextForGroup(groupid, '['..pname..'] Unit kill +'..earning..' credits', 5)
 									end
 									
 									self.context.playerContributions[side][pname] = self.context.playerContributions[side][pname] + earning

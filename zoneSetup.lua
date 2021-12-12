@@ -73,20 +73,20 @@ cargoAccepts = {
 }
 
 flavor = {
-	anapa = 'Home base',
-	alpha='Defensive position next to the town of Natuhaevskaya',
-	bravo='FARP next to the town of Damanka.\nWill let us launch helicopter attacks from a bit closer to the action.',
-	charlie='Defensive position next to an old TV tower.\nWill provide allied air patrol to help capture Bravo',
-	convoy='Supply convoy detained north of Bravo.\nKeep damage to the trucks to a minimum while liberating this area.\nWe could really use the supplies.',
-	krymsk='Airbase next to the city of Krymsk.\nCapturing it will provide us with valuable aircraft to use for our cause.',
-	radio='Radio atenna on the outskirts of Krymsk.\nIf we capture it, we can launch AWACS from the nearby airport\nto get some much needed intel on the enemy.',
-	oilfields='Oil extraction and Refinery north of Krymsk.\nCapture it to get a steady stream of income, or just destroy it to put a hole in the enemy wallet.',
-	delta='Defensive position out in the middle of nowhere',
-	factory='Weapon factory next to the town of Homskiy.\nWe can use it to resupply nearby bases.\nIt will also provide a steady stream of income.',
-	samsite='Home to an old SA-2 site.\nIf we capture it, we might be able to get some use out of it.',
-	foxtrot='Defensive position with a nice view of a lake',
-	echo='FARP next to the city of Krasnodar.\nCapturing it will let us operate our helicopters in the area.',
-	krasnodar='Airbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
+	anapa = 'WPT 1\nHome base',
+	alpha='WPT 2\nDefensive position next to the town of Natuhaevskaya',
+	bravo='WPT 3\nFARP next to the town of Damanka.\nWill let us launch helicopter attacks from a bit closer to the action.',
+	charlie='WPT 4\nDefensive position next to an old TV tower.\nWill provide allied air patrol to help capture Bravo',
+	convoy='WPT 5\nSupply convoy detained north of Bravo.\nKeep damage to the trucks to a minimum while liberating this area.\nWe could really use the supplies.',
+	krymsk='WPT 7\nAirbase next to the city of Krymsk.\nCapturing it will provide us with valuable aircraft to use for our cause.',
+	radio='WPT 8\nRadio atenna on the outskirts of Krymsk.\nIf we capture it, we can launch AWACS from the nearby airport\nto get some much needed intel on the enemy.',
+	oilfields='WPT 6\nOil extraction and Refinery north of Krymsk.\nCapture it to get a steady stream of income, or just destroy it to put a hole in the enemy wallet.',
+	delta='WPT 10\nDefensive position out in the middle of nowhere',
+	factory='WPT 9\nWeapon factory next to the town of Homskiy.\nWe can use it to resupply nearby bases.\nIt will also provide a steady stream of income.',
+	samsite='WPT 11\nHome to an old SA-2 site.\nIf we capture it, we might be able to get some use out of it.',
+	foxtrot='WPT 13\nDefensive position with a nice view of a lake',
+	echo='WPT 12\nFARP next to the city of Krasnodar.\nCapturing it will let us operate our helicopters in the area.',
+	krasnodar='WPT 14\nAirbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
 }
 
 bc = BattleCommander:new()
@@ -272,7 +272,7 @@ convoy:registerTrigger('lost', function (event, sender)
 		local percentLost = math.ceil((totalLost/#convoyItems)*100)
 		percentLost = math.min(percentLost,100)
 		percentLost = math.max(percentLost,1)
-		message = message..' but we lost '..percentLost..' of the trucks.'
+		message = message..' but we lost '..percentLost..'% of the trucks.'
 	else
 		message = message..'. We recovered all of the supplies.'
 	end
@@ -291,6 +291,24 @@ end
 
 oilfields:registerTrigger('captured', showCredIncrease, 'oilfieldcaptured')
 factory:registerTrigger('captured', showCredIncrease, 'factorycaptured')
+
+local checkMissionComplete = function (event, sender)
+	local done = true
+	for i,v in ipairs(bc:getZones()) do
+		if v.side == 1 then
+			done = false
+			break
+		end
+	end
+	
+	if done then
+		trigger.action.outText("Enemy has been defeated. \n\nMission Complete.", 120)
+	end
+end
+
+for i,v in ipairs(bc:getZones()) do
+	v:registerTrigger('lost', checkMissionComplete, 'missioncompleted')
+end
 
 --bc:addFunds(1,0)
 --bc:addFunds(2,0)
@@ -480,7 +498,7 @@ bc:addShopItem(2, 'jtac1', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()
-bc:registerShopItem('redcas1', 'Red Cas', 400, function(sender) 
+bc:registerShopItem('redcas1', 'Red Cas', 1000, function(sender) 
 	local gr = Group.getByName('redcas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -490,7 +508,7 @@ bc:registerShopItem('redcas1', 'Red Cas', 400, function(sender)
 end)
 
 Group.getByName('redcap1'):destroy()
-bc:registerShopItem('redcap1', 'Red Cap', 400, function(sender) 
+bc:registerShopItem('redcap1', 'Red Cap', 1000, function(sender) 
 	local gr = Group.getByName('redcap1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -500,7 +518,7 @@ bc:registerShopItem('redcap1', 'Red Cap', 400, function(sender)
 end)
 
 Group.getByName('redsead1'):destroy()
-bc:registerShopItem('redsead1', 'Red Sead', 500, function(sender) 
+bc:registerShopItem('redsead1', 'Red Sead', 1000, function(sender) 
 	local gr = Group.getByName('redsead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -510,7 +528,7 @@ bc:registerShopItem('redsead1', 'Red Sead', 500, function(sender)
 end)
 
 Group.getByName('redmlrs1'):destroy()
-bc:registerShopItem('redmlrs1', 'spawn Red mlrs', 500, function(sender) 
+bc:registerShopItem('redmlrs1', 'spawn Red mlrs', 1000, function(sender) 
 	local zn = bc:getZoneByName('Foxtrot')
 	if zn.side == 1 and zn.active then
 		local gr = Group.getByName('redmlrs1')
@@ -546,7 +564,7 @@ bc:registerShopItem('redmlrs1', 'spawn Red mlrs', 500, function(sender)
 	end
 end)
 
-bc:registerShopItem('redmlrs1fire', 'fire red mlrs', 300, function(sender) 
+bc:registerShopItem('redmlrs1fire', 'fire red mlrs', 200, function(sender) 
 	local gr = Group.getByName('redmlrs1')
 	if gr then
 		local targetzones = {'Echo', 'Delta', 'SAM Site', 'Factory', 'Radio Tower', 'Krymsk'}
@@ -581,7 +599,7 @@ end)
 Group.getByName('intercept1'):destroy()
 Group.getByName('intercept2'):destroy()
 local cargoDieEvent = nil
-bc:registerShopItem('intercept1', 'Red intercept', 600, function(sender) 
+bc:registerShopItem('intercept1', 'Red intercept', 1000, function(sender) 
 	local grt = Group.getByName('intercept1')
 	local gre = Group.getByName('intercept2')
 	if gre and gre:getSize()>0 and gre:getController():hasTask() then 
@@ -600,8 +618,8 @@ bc:registerShopItem('intercept1', 'Red intercept', 600, function(sender)
 			if event.id==28 then
 				if event.initiator and event.initiator:getCoalition()==2 and event.target and event.target.getGroup then
 					if event.target:getGroup():getName()=='intercept1' then
-						trigger.action.outTextForCoalition(2,'Enemy cargo transport destroyed.\n+250 credits',15)
-						bc:addFunds(2,250)
+						trigger.action.outTextForCoalition(2,'Enemy cargo transport destroyed.\n+500 credits',15)
+						bc:addFunds(2,500)
 						mist.removeEventHandler(cargoDieEvent)
 						cargoDieEvent = nil
 					end
@@ -618,7 +636,7 @@ end)
 Group.getByName('escort1'):destroy()
 Group.getByName('antiescort1'):destroy()
 Group.getByName('antiescort2'):destroy()
-bc:registerShopItem('escort1', 'Red antiescort', 600, function(sender) 
+bc:registerShopItem('escort1', 'Red antiescort', 1000, function(sender) 
 	local gr = Group.getByName('escort1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'still alive'
@@ -657,7 +675,7 @@ bc:addShopItem(1, 'redmlrs1', -1)
 bc:addShopItem(1, 'intercept1', -1)
 bc:addShopItem(1, 'escort1', -1)
 
-bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance = 10})
+bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=20*60, decissionVariance=10*60, skipChance = 10})
 bugetAI:init()
 --end red support
 
