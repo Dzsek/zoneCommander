@@ -161,7 +161,6 @@ do
 		self.lasers.ir = Spot.createInfraRed(me:getUnit(1), { x = 0, y = 2.0, z = 0 }, pnt)
 		
 		self.target = unit:getName()
-		self:printTarget()
 	end
 	
 	function JTAC:printTarget(makeitlast)
@@ -238,6 +237,7 @@ do
 				if #viabletgts>0 then
 					local chosentgt = math.random(1, #viabletgts)
 					self:setTarget(viabletgts[chosentgt])
+					self:printTarget()
 				else
 					self:clearTarget()
 				end
@@ -251,6 +251,11 @@ do
 		if Group.getByName(self.name) then
 			if not self.target or not Unit.getByName(self.target) then
 				self:searchTarget()
+			elseif self.target then
+				local un = Unit.getByName(self.target)
+				if un then
+					self:setTarget(un)
+				end
 			end
 		else
 			self:clearTarget()
