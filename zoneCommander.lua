@@ -861,6 +861,27 @@ do
 		end
 		
 		world.addEventHandler(ev)
+		
+		local resetPoints = function(context, side)
+			local plys =  coalition.getPlayers(side)
+			
+			local players = {}
+			for i,v in pairs(plys) do
+				local nm = v:getPlayerName()
+				if nm then
+					players[nm] = true
+				end
+			end
+
+			for i,v in pairs(context.playerContributions[side]) do
+				if not players[i] then
+					context.playerContributions[side][i] = 0
+				end
+			end
+		end
+		
+		mist.scheduleFunction(resetPoints, {self, 1}, timer.getTime() + 1, 60)
+		mist.scheduleFunction(resetPoints, {self, 2}, timer.getTime() + 1, 60)
 	end
 	
 	function BattleCommander:update()
