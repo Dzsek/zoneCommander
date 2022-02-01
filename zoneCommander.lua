@@ -673,7 +673,7 @@ do
 				end
 			end
 		
-			states.zones[v.zone] = { side = v.side, level = #v.built,remainingUnits = unitTable, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
+			states.zones[v.zone] = { side = v.side, level = #v.built, remainingUnits = unitTable, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
 			
 			for i2,v2 in ipairs(v.triggers) do
 				if v2.id then
@@ -764,49 +764,6 @@ do
 			
 			trigger.action.lineToAll(-1, 1000+i, from.point, to.point, {1,1,1,0.5}, 2)
 		end
-		
-		local destroyPersistedUnits = function(context)
-			if zonePersistance then
-				if zonePersistance.zones then
-					for i,v in pairs(zonePersistance.zones) do
-						local remaining = v.remainingUnits
-						
-						if remaining then
-							local zn = context:getZoneByName(i)
-							if zn then
-								for i2,v2 in pairs(zn.built) do
-									local bgr = Group.getByName(v2)
-									for i3,v3 in ipairs(bgr:getUnits()) do
-										local budesc = v3:getDesc()
-										local found = false
-										if remaining[i2] then
-											local delindex = nil
-											for i4,v4 in ipairs(remaining[i2]) do
-												if v4 == budesc['typeName'] then
-													delindex = i4
-													found = true
-													break
-												end
-											end
-											
-											if delindex then
-												table.remove(remaining[i2], delindex)
-											end
-										end
-										
-										if not found then
-											v3:destroy()
-										end
-									end
-								end
-							end
-						end
-					end
-				end
-			end
-		end
-		
-		mist.scheduleFunction(destroyPersistedUnits, {self}, timer.getTime() + 1)
 		
 		missionCommands.addCommandForCoalition(1, 'Buget overview', nil, self.printShopStatus, self, 1)
 		missionCommands.addCommandForCoalition(2, 'Buget overview', nil, self.printShopStatus, self, 2)
@@ -979,6 +936,10 @@ do
 					if zn then
 						zn.side = v.side
 						zn.level = v.level
+						
+						if v.remainingUnits then
+							zn.remainingUnits = v.remainingUnits
+						end
 						
 						if type(v.active)=='boolean' then
 							zn.active = v.active
@@ -1176,20 +1137,32 @@ do
 		trigger.action.circleToAll(-1,self.index,zone.point, zone.radius,color,color,1)
 		trigger.action.textToAll(-1,2000+self.index,zone.point, {0,0,0,0.5}, {0,0,0,0}, 15, true, self.zone)
 		
-		if #self.built < self.level then
-			local upgrades
-			if self.side == 1 then
-				upgrades = self.upgrades.red
-			elseif self.side == 2 then
-				upgrades = self.upgrades.blue
-			else
-				upgrades = {}
+		local upgrades
+		if self.side == 1 then
+			upgrades = self.upgrades.red
+		elseif self.side == 2 then
+			upgrades = self.upgrades.blue
+		else
+			upgrades = {}
+		end
+		
+		if self.remainingUnits then
+			for i,v in pairs(self.remainingUnits) do
+				if not self.built[i] then
+					local upg = upgrades[i]
+					local gr = mist.cloneInZone(upg, self.zone, true, nil, {initTasks=true})
+					self.built[i] = gr.name
+				end
 			end
 			
-			for i,v in pairs(upgrades) do
-				if not self.built[i] and i<=self.level then
-					local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
-					self.built[i] = gr.name
+			self:weedOutRemainingUnits()
+		else
+			if #self.built < self.level then
+				for i,v in pairs(upgrades) do
+					if not self.built[i] and i<=self.level then
+						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
+						self.built[i] = gr.name
+					end
 				end
 			end
 		end
@@ -1201,6 +1174,40 @@ do
 		for i,v in ipairs(self.groups) do
 			v:init()
 		end
+	end
+	
+	function ZoneCommander:weedOutRemainingUnits()
+		local destroyPersistedUnits = function(context)
+			if context.remainingUnits then
+				for i2,v2 in pairs(context.built) do
+					local bgr = Group.getByName(v2)
+					for i3,v3 in ipairs(bgr:getUnits()) do
+						local budesc = v3:getDesc()
+						local found = false
+						if context.remainingUnits[i2] then
+							local delindex = nil
+							for i4,v4 in ipairs(context.remainingUnits[i2]) do
+								if v4 == budesc['typeName'] then
+									delindex = i4
+									found = true
+									break
+								end
+							end
+							
+							if delindex then
+								table.remove(context.remainingUnits[i2], delindex)
+							end
+						end
+						
+						if not found then
+							v3:destroy()
+						end
+					end
+				end
+			end	
+		end
+		
+		mist.scheduleFunction(destroyPersistedUnits, {self}, timer.getTime() + 5)
 	end
 	
 	function ZoneCommander:checkCriticalObjects()
