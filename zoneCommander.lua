@@ -9,12 +9,19 @@ do
 		return pt.y - land.getHeight({ x = pt.x, y = pt.z })
 	end
 	
-	function Utils.isLanded(unit)
-		return (Utils.getAGL(unit)<5 and mist.vec.mag(unit:getVelocity())<0.10)
+	function Utils.isLanded(unit, ignorespeed)
+		--return (Utils.getAGL(unit)<5 and mist.vec.mag(unit:getVelocity())<0.10)
+		
+		if ignorespeed then
+			return not unit:inAir()
+		else
+			return (not unit:inAir() and mist.vec.mag(unit:getVelocity())<1)
+		end
 	end
 	
 	function Utils.isInAir(unit)
-		return Utils.getAGL(unit)>5
+		--return Utils.getAGL(unit)>5
+		return unit:inAir()
 	end
 	
 	function Utils.isInZone(unit, zonename)
@@ -47,9 +54,9 @@ do
 		return false
 	end
 	
-	function Utils.allGroupIsLanded(group)
+	function Utils.allGroupIsLanded(group, ignorespeed)
 		for i,v in pairs(group:getUnits()) do
-			if not Utils.isLanded(v) then
+			if not Utils.isLanded(v, ignorespeed) then
 				return false
 			end
 		end
@@ -344,8 +351,12 @@ do
 	BattleCommander.playerRewardsOn = false
 	BattleCommander.rewards = {}
 	
-	function BattleCommander:new()
+	function BattleCommander:new(savepath)
 		local obj = {}
+		obj.saveFile = 'zoneCommander.lua'
+		if savepath then
+			obj.saveFile = savepath
+		end
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
@@ -481,7 +492,7 @@ do
 			elseif count==10 then
 				sub1 = missionCommands.addSubMenuForCoalition("More", shopmenu)
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
-			elseif count==19 then
+			elseif count%9==1 then
 				sub1 = missionCommands.addSubMenuForCoalition("More", sub1)
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
 			else
@@ -528,6 +539,9 @@ do
 					missionCommands.addCommandForCoalition(coalition, v.zone, menu, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
 				elseif count==10 then
 					sub1 = missionCommands.addSubMenuForCoalition(coalition, "More", menu)
+					missionCommands.addCommandForCoalition(coalition, v.zone, sub1, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
+				elseif count%9==1 then
+					sub1 = missionCommands.addSubMenuForCoalition(coalition, "More", sub1)
 					missionCommands.addCommandForCoalition(coalition, v.zone, sub1, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
 				else
 					missionCommands.addCommandForCoalition(coalition, v.zone, sub1, executeAction, action, {zone = v.zone, menu=menu, coalition=coalition})
@@ -648,7 +662,18 @@ do
 	function BattleCommander:getStateTable()
 		local states = {zones={}, accounts={}}
 		for i,v in ipairs(self.zones) do
-			states.zones[v.zone] = { side = v.side, level = #v.built, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
+			
+			unitTable = {}
+			for i2,v2 in pairs(v.built) do
+				unitTable[i2] = {}
+				local gr = Group.getByName(v2)
+				for i3,v3 in ipairs(gr:getUnits()) do
+					local desc = v3:getDesc()
+					table.insert(unitTable[i2], desc['typeName'])
+				end
+			end
+		
+			states.zones[v.zone] = { side = v.side, level = #v.built,remainingUnits = unitTable, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
 			
 			for i2,v2 in ipairs(v.triggers) do
 				if v2.id then
@@ -725,6 +750,9 @@ do
 			elseif i==10 then
 				sub1 = missionCommands.addSubMenu("More", main)
 				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
+			elseif i%9==10 then
+				sub1 = missionCommands.addSubMenu("More", sub1)
+				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
 			else
 				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
 			end
@@ -736,6 +764,49 @@ do
 			
 			trigger.action.lineToAll(-1, 1000+i, from.point, to.point, {1,1,1,0.5}, 2)
 		end
+		
+		local destroyPersistedUnits = function(context)
+			if zonePersistance then
+				if zonePersistance.zones then
+					for i,v in pairs(zonePersistance.zones) do
+						local remaining = v.remainingUnits
+						
+						if remaining then
+							local zn = context:getZoneByName(i)
+							if zn then
+								for i2,v2 in pairs(zn.built) do
+									local bgr = Group.getByName(v2)
+									for i3,v3 in ipairs(bgr:getUnits()) do
+										local budesc = v3:getDesc()
+										local found = false
+										if remaining[i2] then
+											local delindex = nil
+											for i4,v4 in ipairs(remaining[i2]) do
+												if v4 == budesc['typeName'] then
+													delindex = i4
+													found = true
+													break
+												end
+											end
+											
+											if delindex then
+												table.remove(remaining[i2], delindex)
+											end
+										end
+										
+										if not found then
+											v3:destroy()
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+		
+		mist.scheduleFunction(destroyPersistedUnits, {self}, timer.getTime() + 1)
 		
 		missionCommands.addCommandForCoalition(1, 'Buget overview', nil, self.printShopStatus, self, 1)
 		missionCommands.addCommandForCoalition(2, 'Buget overview', nil, self.printShopStatus, self, 2)
@@ -896,11 +967,11 @@ do
 	
 	function BattleCommander:saveToDisk()
 		local statedata = self:getStateTable()
-		Utils.saveTable('foothold_1.1.lua', 'zonePersistance', statedata)
+		Utils.saveTable(self.saveFile, 'zonePersistance', statedata)
 	end
 	
 	function BattleCommander:loadFromDisk()
-		Utils.loadTable('foothold_1.1.lua')
+		Utils.loadTable(self.saveFile)
 		if zonePersistance then
 			if zonePersistance.zones then
 				for i,v in pairs(zonePersistance.zones) do
@@ -1117,7 +1188,7 @@ do
 			
 			for i,v in pairs(upgrades) do
 				if not self.built[i] and i<=self.level then
-					local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true, validTerrain={'LAND'}})
+					local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
 					self.built[i] = gr.name
 				end
 			end
@@ -1323,7 +1394,7 @@ do
 			if not complete and #self.built < #upgrades then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] then
-						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true, validTerrain={'LAND'}})
+						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
 						self.built[i] = gr.name
 						trigger.action.outText(self.zone..' defenses upgraded', 5)
 						self:runTriggers('upgraded')
@@ -1341,7 +1412,7 @@ end
 
 GroupCommander = {}
 do
-	--{ name='groupname', mission=['patrol', 'supply', 'attack'], targetzone='zonename' }
+	--{ name='groupname', mission=['patrol', 'supply', 'attack'], targetzone='zonename', landsatcarrier=true }
 	function GroupCommander:new(obj)
 		obj = obj or {}
 		obj.state = 'inhangar'
@@ -1419,7 +1490,7 @@ do
 			end
 		elseif self.state =='takeoff' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.blockedDespawnTime then
-				if gr and Utils.allGroupIsLanded(gr) then
+				if gr and Utils.allGroupIsLanded(gr, self.landsatcarrier) then
 					gr:destroy()
 					self.state = 'inhangar'
 					self.lastStateTime = timer.getAbsTime()
@@ -1429,7 +1500,7 @@ do
 				self.lastStateTime = timer.getAbsTime()
 			end
 		elseif self.state =='inair' then
-			if gr and Utils.allGroupIsLanded(gr) then
+			if gr and Utils.allGroupIsLanded(gr, self.landsatcarrier) then
 				self.state = 'landed'
 				self.lastStateTime = timer.getAbsTime()
 			end
