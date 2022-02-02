@@ -443,6 +443,7 @@ Group.getByName('jtacDrone'):destroy()
 local jtacTargetMenu = nil
 local jtacInfoMenu = nil
 local jtacNextTGTMenu = nil
+local jtacSmokeMenu = nil
 drone = JTAC:new({name = 'jtacDrone'})
 bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender)
 	
@@ -462,8 +463,10 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 					else
 						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
 						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
+						missionCommands.removeItemForCoalition(2, jtacSmokeMenu)
 						jtacInfoMenu = nil
 						jtacNextTGTMenu = nil
+						jtacSmokeMenu = nil
 					end
 				end, drone)
 				
@@ -473,8 +476,27 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 					else
 						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
 						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
+						missionCommands.removeItemForCoalition(2, jtacSmokeMenu)
 						jtacInfoMenu = nil
 						jtacNextTGTMenu = nil
+						jtacSmokeMenu = nil
+					end
+				end, drone)
+				
+				jtacSmokeMenu = missionCommands.addCommandForCoalition(2, 'JTAC Deploy Smoke', nil, function(dr)
+					if Group.getByName(dr.name) then
+						local tgtunit = Unit.getByName(dr.target)
+						if tgtunit then
+							trigger.action.smoke(tgtunit:getPosition().p, 3)
+							trigger.action.outTextForCoalition(2, 'JTAC target marked with ORANGE smoke', 10)
+						end
+					else
+						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
+						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
+						missionCommands.removeItemForCoalition(2, jtacSmokeMenu)
+						jtacInfoMenu = nil
+						jtacNextTGTMenu = nil
+						jtacSmokeMenu = nil
 					end
 				end, drone)
 			end
@@ -489,12 +511,54 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 	trigger.action.outTextForCoalition(2, 'Choose which zone to deploy JTAC at from F10 menu', 15)
 end)
 
+local smokeTargetMenu = nil
+bc:registerShopItem('smokeTargets', 'Smoke markers', 20, function(sender)
+	if smokeTargetMenu then
+		return 'Choose target zone from F10 menu'
+	end
+	
+	local launchAttack = function(target)
+		if smokeTargetMenu then
+			local tz = bc:getZoneByName(target)
+			local units = {}
+			for i,v in pairs(tz.built) do
+				local g = Group.getByName(v)
+				for i2,v2 in ipairs(g:getUnits()) do
+					table.insert(units, v2)
+				end
+			end
+			
+			local tgts = {}
+			for i=1,3,1 do
+				if #units > 0 then
+					local selected = math.random(1,#units)
+					table.insert(tgts, units[selected])
+					table.remove(units, selected)
+				end
+			end
+			
+			for i,v in ipairs(tgts) do
+				local pos = v:getPosition().p
+				trigger.action.smoke(pos, 1)
+			end
+			
+			smokeTargetMenu = nil
+			trigger.action.outTextForCoalition(2, 'Targets marked with RED smoke at '..target, 15)
+		end
+	end
+	
+	smokeTargetMenu = bc:showTargetZoneMenu(2, 'Smoke marker target', launchAttack, 1)
+	
+	trigger.action.outTextForCoalition(2, 'Choose target zone from F10 menu', 15)
+end)
+
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
 bc:addShopItem(2, 'cruiseAttack', 12)
 bc:addShopItem(2, 'upgradeZone', -1)
 bc:addShopItem(2, 'jtac1', -1)
+bc:addShopItem(2, 'smokeTargets', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()
