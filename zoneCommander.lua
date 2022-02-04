@@ -688,6 +688,22 @@ do
 		return states
 	end
 	
+	function BattleCommander:getZoneOfUnit(unitname)
+		local un = Unit.getByName(unitname)
+		
+		if not un then 
+			return nil
+		end
+		
+		for i,v in ipairs(self.zones) do
+			if Utils.isInZone(un, v.zone) then
+				return v
+			end
+		end
+		
+		return nil
+	end
+	
 	function BattleCommander:addZone(zone)
 		table.insert(self.zones, zone)
 		zone.index = self:getZoneIndexByName(zone.zone)
@@ -1589,3 +1605,174 @@ do
 	end
 end
 
+LogisticCommander = {}
+do
+	LogisticCommander.allowedTypes = {}
+	LogisticCommander.allowedTypes['Ka-50'] = true
+	LogisticCommander.allowedTypes['Mi-24P'] = true
+	LogisticCommander.allowedTypes['SA342Mistral'] = true
+	LogisticCommander.allowedTypes['SA342L'] = true
+	LogisticCommander.allowedTypes['SA342M'] = true
+	LogisticCommander.allowedTypes['SA342Minigun'] = true
+	LogisticCommander.allowedTypes['UH-60L'] = true
+	LogisticCommander.allowedTypes['AH-64D'] = true
+	LogisticCommander.allowedTypes['UH-1H'] = true
+	LogisticCommander.allowedTypes['Mi-8MT'] = true
+	LogisticCommander.allowedTypes['Hercules'] = true
+	
+	--{ battleCommander = object, supplyZones = { 'zone1', 'zone2'...}}
+	function LogisticCommander:new(obj)
+		obj = obj or {}
+		obj.groupMenus = {} -- groupid = {path } 
+		obj.carriedCargo = {} -- groupid = { source }
+		
+		setmetatable(obj, self)
+		self.__index = self
+		return obj
+	end
+	
+	function LogisticCommander:loadSupplies(groupName)
+		local gr = Group.getByName(groupName)
+		if gr then
+			local un = gr:getUnit(1)
+			if un then
+				if Utils.isInAir(un) then
+					trigger.action.outTextForGroup(gr:getID(), 'Can not load supplies while in air', 10)
+					return
+				end
+				
+				local zn = self.battleCommander:getZoneOfUnit(un:getName())
+				if not zn then
+					trigger.action.outTextForGroup(gr:getID(), 'Can only load supplies while within a friendly supply zone', 10)
+					return
+				end
+				
+				if zn.side ~= un:getCoalition() then
+					trigger.action.outTextForGroup(gr:getID(), 'Can only load supplies while within a friendly supply zone', 10)
+					return
+				end
+				
+				if self.carriedCargo[gr:getID()] then
+					trigger.action.outTextForGroup(gr:getID(), 'Supplies already loaded', 10)
+					return
+				end
+				
+				for i,v in ipairs(self.supplyZones) do
+					if v == zn.zone then
+						self.carriedCargo[gr:getID()] = zn.zone
+						trigger.action.setUnitInternalCargo(un:getName(), 800)
+						trigger.action.outTextForGroup(gr:getID(), 'Supplies loaded', 10)
+						return
+					end
+				end
+				
+				trigger.action.outTextForGroup(gr:getID(), 'Can only load supplies while within a friendly supply zone', 10)
+				return
+			end
+		end
+	end
+	
+	function LogisticCommander:unloadSupplies(groupName)
+		local gr = Group.getByName(groupName)
+		if gr then
+			local un = gr:getUnit(1)
+			if un then
+				if Utils.isInAir(un) then
+					trigger.action.outTextForGroup(gr:getID(), 'Can not unload supplies while in air', 10)
+					return
+				end
+				
+				local zn = self.battleCommander:getZoneOfUnit(un:getName())
+				if not zn then
+					trigger.action.outTextForGroup(gr:getID(), 'Can only unload supplies while within a friendly or neutral zone', 10)
+					return
+				end
+				
+				if not(zn.side == un:getCoalition() or zn.side == 0) then
+					trigger.action.outTextForGroup(gr:getID(), 'Can only unload supplies while within a friendly or neutral zone', 10)
+					return
+				end
+				
+				if not self.carriedCargo[gr:getID()] then
+					trigger.action.outTextForGroup(gr:getID(), 'No supplies loaded', 10)
+					return
+				end
+				
+				trigger.action.outTextForGroup(gr:getID(), 'Supplies unloaded', 10)
+				if self.carriedCargo[gr:getID()] ~= zn.zone then
+					if zn.side == 0 then 
+						zn:capture(un:getCoalition())
+						
+						if self.battleCommander.playerRewardsOn then
+							self.battleCommander:addFunds(un:getCoalition(), self.battleCommander.rewards.crate)
+							trigger.action.outTextForCoalition(un:getCoalition(),'Capture +'..self.battleCommander.rewards.crate..' credits',5)
+						end
+					elseif zn.side == un:getCoalition() then
+						zn:upgrade()
+						
+						if self.battleCommander.playerRewardsOn then
+							self.battleCommander:addFunds(un:getCoalition(), self.battleCommander.rewards.crate)
+							trigger.action.outTextForCoalition(un:getCoalition(),'Resupply +'..self.battleCommander.rewards.crate..' credits',5)
+						end
+					end
+				end
+				
+				self.carriedCargo[gr:getID()] = nil
+				trigger.action.setUnitInternalCargo(un:getName(), 0)
+				return
+			end
+		end
+	end
+	
+	function LogisticCommander:listSupplyZones(groupName)
+		local gr = Group.getByName(groupName)
+		if gr then
+			local msg = 'Friendly supply zones:'
+			for i,v in ipairs(self.supplyZones) do
+				local z = self.battleCommander:getZoneByName(v)
+				if z and z.side == gr:getCoalition() then
+					msg = msg..'\n'..v
+				end
+			end
+			
+			trigger.action.outTextForGroup(gr:getID(), msg, 15)
+		end
+	end
+	
+	function LogisticCommander:init()
+		local ev = {}
+		ev.context = self
+		function ev:onEvent(event)
+			if event.id == 15 and event.initiator then
+				local player = event.initiator:getPlayerName()
+				if player then
+					local unitType = event.initiator:getDesc()['typeName']
+					local groupid = event.initiator:getGroup():getID()
+					local groupname = event.initiator:getGroup():getName()
+					
+					if self.context.allowedTypes[unitType] then
+						if not self.context.groupMenus[groupid] then
+							local size = event.initiator:getGroup():getSize()
+							if size > 1 then
+								trigger.action.outText('WARNING: group '..groupname..' has '..size..' units. Logistics will only function for group leader', 10)
+							end
+							
+							local cargomenu = missionCommands.addSubMenuForGroup(groupid, 'Logistics')
+							missionCommands.addCommandForGroup(groupid, 'Load supplies', cargomenu, self.context.loadSupplies, self.context, groupname)
+							missionCommands.addCommandForGroup(groupid, 'Unload supplies', cargomenu, self.context.unloadSupplies, self.context, groupname)
+							missionCommands.addCommandForGroup(groupid, 'List supply zones', cargomenu, self.context.listSupplyZones, self.context, groupname)
+							
+							self.context.groupMenus[groupid] = cargomenu
+						end
+						
+						if self.context.carriedCargo[groupid] then
+							self.context.carriedCargo[groupid] = nil
+						end
+					end
+				end
+			end
+		end
+		
+		world.addEventHandler(ev)
+	end
+end

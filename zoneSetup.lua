@@ -552,6 +552,17 @@ bc:registerShopItem('smokeTargets', 'Smoke markers', 20, function(sender)
 	trigger.action.outTextForCoalition(2, 'Choose target zone from F10 menu', 15)
 end)
 
+Group.getByName('awacs1'):destroy()
+bc:registerShopItem('awacs', 'AWACS', 100, function(sender) 
+	local gr = Group.getByName('awacs1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'Darkstar still active on 252.00 MHz AM'
+	end
+	mist.respawnGroup('awacs1', true)
+	trigger.action.outTextForCoalition(2,'Darkstar active on 252.00 MHz AM',15)
+end)
+
+
 bc:addShopItem(2, 'sead1', -1)
 bc:addShopItem(2, 'sweep1', -1)
 bc:addShopItem(2, 'cas1', -1)
@@ -559,6 +570,7 @@ bc:addShopItem(2, 'cruiseAttack', 12)
 bc:addShopItem(2, 'upgradeZone', -1)
 bc:addShopItem(2, 'jtac1', -1)
 bc:addShopItem(2, 'smokeTargets', -1)
+bc:addShopItem(2, 'awacs', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()
@@ -743,11 +755,14 @@ bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=
 bugetAI:init()
 --end red support
 
+lc = LogisticCommander:new({battleCommander = bc, supplyZones = {'Anapa', 'Krymsk', 'Factory', 'Bravo', 'Echo'}})
+lc:init()
 
 
 bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds and available shop items
 bc:init()
 bc:startRewardPlayerContribution(15,{infantry = 5, ground = 15, sam = 30, airplane = 30, ship = 200, helicopter=40, crate=100})
+
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do
