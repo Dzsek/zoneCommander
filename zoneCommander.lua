@@ -1688,7 +1688,7 @@ do
 					return
 				end
 				
-				if not(zn.side == un:getCoalition() or zn.side == 0) then
+				if not(zn.side == un:getCoalition() or zn.side == 0)then
 					trigger.action.outTextForGroup(gr:getID(), 'Can only unload supplies while within a friendly or neutral zone', 10)
 					return
 				end
@@ -1700,20 +1700,26 @@ do
 				
 				trigger.action.outTextForGroup(gr:getID(), 'Supplies unloaded', 10)
 				if self.carriedCargo[gr:getID()] ~= zn.zone then
-					if zn.side == 0 then 
-						zn:capture(un:getCoalition())
-						
+					if zn.side == 0 and zn.active then 
 						if self.battleCommander.playerRewardsOn then
 							self.battleCommander:addFunds(un:getCoalition(), self.battleCommander.rewards.crate)
 							trigger.action.outTextForCoalition(un:getCoalition(),'Capture +'..self.battleCommander.rewards.crate..' credits',5)
 						end
-					elseif zn.side == un:getCoalition() then
-						zn:upgrade()
 						
+						zn:capture(un:getCoalition())
+					elseif zn.side == un:getCoalition() then
 						if self.battleCommander.playerRewardsOn then
-							self.battleCommander:addFunds(un:getCoalition(), self.battleCommander.rewards.crate)
-							trigger.action.outTextForCoalition(un:getCoalition(),'Resupply +'..self.battleCommander.rewards.crate..' credits',5)
+							if zn:canRecieveSupply() then
+								self.battleCommander:addFunds(un:getCoalition(), self.battleCommander.rewards.crate)
+								trigger.action.outTextForCoalition(un:getCoalition(),'Resupply +'..self.battleCommander.rewards.crate..' credits',5)
+							else
+								local reward = self.battleCommander.rewards.crate * 0.25
+								self.battleCommander:addFunds(un:getCoalition(), reward)
+								trigger.action.outTextForCoalition(un:getCoalition(),'Resupply +'..reward..' credits (-75% due to no demand)',5)
+							end
 						end
+						
+						zn:upgrade()
 					end
 				end
 				
@@ -1743,7 +1749,7 @@ do
 		local ev = {}
 		ev.context = self
 		function ev:onEvent(event)
-			if event.id == 15 and event.initiator then
+			if event.id == 15 and event.initiator and event.initiator.getPlayerName then
 				local player = event.initiator:getPlayerName()
 				if player then
 					local unitType = event.initiator:getDesc()['typeName']
