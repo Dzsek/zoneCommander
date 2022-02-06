@@ -766,7 +766,7 @@ do
 			elseif i==10 then
 				sub1 = missionCommands.addSubMenu("More", main)
 				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
-			elseif i%9==10 then
+			elseif i%9==1 then
 				sub1 = missionCommands.addSubMenu("More", sub1)
 				missionCommands.addCommand(v.zone, sub1, v.displayStatus, v)
 			else
