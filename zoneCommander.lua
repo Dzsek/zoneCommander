@@ -1,3 +1,17 @@
+--[[
+~~~Description~~~
+ZoneCommander provides classes and utilities for building dynamic missions, with an enemy that reacts to the changing battlefield.
+
+Needs MIST: https://github.com/mrSkortch/MissionScriptingTools/tree/master
+
+~~~Github~~~
+Repo & documentation: https://github.com/Dzsek/zoneCommander
+
+~~~Author~~
+Dzsekeb
+]]
+
+
 Utils = {}
 do
 	function Utils.getPointOnSurface(point)
@@ -704,6 +718,20 @@ do
 		return nil
 	end
 	
+	function BattleCommander:getZoneOfWeapon(weapon)
+		if not weapon then 
+			return nil
+		end
+		
+		for i,v in ipairs(self.zones) do
+			if Utils.isInZone(weapon, v.zone) then
+				return v
+			end
+		end
+		
+		return nil
+	end
+	
 	function BattleCommander:addZone(zone)
 		table.insert(self.zones, zone)
 		zone.index = self:getZoneIndexByName(zone.zone)
@@ -1014,6 +1042,12 @@ do
 	
 	function ZoneCommander:addRestrictedPlayerGroup(groupinfo)
 		table.insert(self.restrictedGroups, groupinfo)
+	end
+	
+	function ZoneCommander:markWithSmoke()
+		local zone = trigger.misc.getZone(self.zone)
+		local p = Utils.getPointOnSurface(zone.point)
+		trigger.action.smoke(p, 0)
 	end
 	
 	--if all critical onjects are lost in a zone, that zone turns neutral and can never be recaptured
@@ -1768,6 +1802,26 @@ do
 							missionCommands.addCommandForGroup(groupid, 'Unload supplies', cargomenu, self.context.unloadSupplies, self.context, groupname)
 							missionCommands.addCommandForGroup(groupid, 'List supply zones', cargomenu, self.context.listSupplyZones, self.context, groupname)
 							
+							local main = missionCommands.addSubMenuForGroup(groupid, 'Mark Zone', cargomenu)
+							local sub1
+							local index = 0
+							for i,v in ipairs(self.context.battleCommander.zones) do
+								if v.side == 0 or v.side == event.initiator:getCoalition() then
+									index = index+1
+									if index<10 then
+										missionCommands.addCommandForGroup(groupid, v.zone, main, v.markWithSmoke, v)
+									elseif index==10 then
+										sub1 = missionCommands.addSubMenuForGroup(groupid, "More", main)
+										missionCommands.addCommandForGroup(groupid, v.zone, sub1, v.markWithSmoke, v)
+									elseif index%9==1 then
+										sub1 = missionCommands.addSubMenuForGroup(groupid, "More", sub1)
+										missionCommands.addCommandForGroup(groupid, v.zone, sub1, v.markWithSmoke, v)
+									else
+										missionCommands.addCommandForGroup(groupid, v.zone, sub1, v.markWithSmoke, v)
+									end
+								end
+							end
+							
 							self.context.groupMenus[groupid] = cargomenu
 						end
 						
@@ -1780,5 +1834,68 @@ do
 		end
 		
 		world.addEventHandler(ev)
+	end
+end
+
+HercCargoDropSupply = {}
+do
+	HercCargoDropSupply.battleCommander = nil
+	function HercCargoDropSupply.init(bc)
+		HercCargoDropSupply.battleCommander = bc
+		
+		cargodropev = {}
+		function cargodropev:onEvent(event)
+			if event.id == world.event.S_EVENT_SHOT then
+				local name = event.weapon:getDesc().typeName:sub(15, -1)
+				if name == "Generic Crate [20000lb]" then
+					local alt = Utils.getAGL(event.weapon)
+					if alt < 5 then
+						HercCargoDropSupply.ProcessCargo(event.weapon)
+					else
+						timer.scheduleFunction(HercCargoDropSupply.CheckCargo, event.weapon, timer.getTime() + 0.1)
+					end
+				end
+			end
+		end
+		
+		world.addEventHandler(cargodropev)
+	end
+
+	function HercCargoDropSupply.ProcessCargo(cargo)
+		local zn = HercCargoDropSupply.battleCommander:getZoneOfWeapon(cargo)
+		if zn and zn.active then
+			local cargoSide = cargo:getCoalition()
+			if zn.side == 0 then
+				if HercCargoDropSupply.battleCommander.playerRewardsOn then
+					HercCargoDropSupply.battleCommander:addFunds(cargoSide, HercCargoDropSupply.battleCommander.rewards.crate)
+					trigger.action.outTextForCoalition(cargoSide,'Capture +'..HercCargoDropSupply.battleCommander.rewards.crate..' credits',5)
+				end
+				
+				zn:capture(cargoSide)
+			elseif zn.side == cargoSide then
+				if HercCargoDropSupply.battleCommander.playerRewardsOn then
+					if zn:canRecieveSupply() then
+						HercCargoDropSupply.battleCommander:addFunds(cargoSide, HercCargoDropSupply.battleCommander.rewards.crate)
+						trigger.action.outTextForCoalition(cargoSide,'Resupply +'..HercCargoDropSupply.battleCommander.rewards.crate..' credits',5)
+					else
+						local reward = HercCargoDropSupply.battleCommander.rewards.crate * 0.25
+						HercCargoDropSupply.battleCommander:addFunds(cargoSide, reward)
+						trigger.action.outTextForCoalition(cargoSide,'Resupply +'..reward..' credits (-75% due to no demand)',5)
+					end
+				end
+				
+				zn:upgrade()
+			end
+		end
+	end
+	
+	function HercCargoDropSupply.CheckCargo(cargo, time)
+		local alt = Utils.getAGL(cargo)
+		if alt < 5 then
+			HercCargoDropSupply.ProcessCargo(cargo)
+			return nil
+		end
+		
+		return time+0.1
 	end
 end

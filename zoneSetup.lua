@@ -763,6 +763,7 @@ bc:loadFromDisk() --will load and overwrite default zone levels, sides, funds an
 bc:init()
 bc:startRewardPlayerContribution(15,{infantry = 5, ground = 15, sam = 30, airplane = 30, ship = 200, helicopter=40, crate=100})
 
+HercCargoDropSupply.init(bc)
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do
