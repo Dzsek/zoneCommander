@@ -751,8 +751,8 @@ bc:addShopItem(1, 'redmlrs1', -1)
 bc:addShopItem(1, 'intercept1', -1)
 bc:addShopItem(1, 'escort1', -1)
 
-bugetAI = BugetCommander:new({ battleCommander = bc, side=1, decissionFrequency=20*60, decissionVariance=10*60, skipChance = 10})
-bugetAI:init()
+budgetAI = BudgetCommander:new({ battleCommander = bc, side=1, decissionFrequency=20*60, decissionVariance=10*60, skipChance = 10})
+budgetAI:init()
 --end red support
 
 lc = LogisticCommander:new({battleCommander = bc, supplyZones = {'Anapa', 'Krymsk', 'Factory', 'Bravo', 'Echo'}})

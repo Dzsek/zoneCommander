@@ -809,8 +809,8 @@ do
 			trigger.action.lineToAll(-1, 1000+i, from.point, to.point, {1,1,1,0.5}, 2)
 		end
 		
-		missionCommands.addCommandForCoalition(1, 'Buget overview', nil, self.printShopStatus, self, 1)
-		missionCommands.addCommandForCoalition(2, 'Buget overview', nil, self.printShopStatus, self, 2)
+		missionCommands.addCommandForCoalition(1, 'Budget overview', nil, self.printShopStatus, self, 1)
+		missionCommands.addCommandForCoalition(2, 'Budget overview', nil, self.printShopStatus, self, 2)
 		
 		self:refreshShopMenuForCoalition(1)
 		self:refreshShopMenuForCoalition(2)
@@ -1595,22 +1595,22 @@ do
 	end
 end
 
-BugetCommander = {}
+BudgetCommander = {}
 do
 	--{ battleCommander = object, side=coalition, decissionFrequency=seconds, decissionVariance=seconds, skipChance=percent}
-	function BugetCommander:new(obj)
+	function BudgetCommander:new(obj)
 		obj = obj or {}
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
 	end
 	
-	function BugetCommander:update()
-		local buget = self.battleCommander.accounts[self.side]
+	function BudgetCommander:update()
+		local budget = self.battleCommander.accounts[self.side]
 		local options = self.battleCommander.shops[self.side]
 		local canAfford = {}
 		for i,v in pairs(options) do
-			if v.cost<=buget and (v.stock==-1 or v.stock>0) then
+			if v.cost<=budget and (v.stock==-1 or v.stock>0) then
 				table.insert(canAfford, i)
 			end
 		end
@@ -1629,12 +1629,12 @@ do
 		end
 	end
 	
-	function BugetCommander:scheduleDecission()
+	function BudgetCommander:scheduleDecission()
 		local variance = math.random(1, self.decissionVariance)
 		mist.scheduleFunction(self.update, {self}, timer.getTime() + variance)
 	end
 	
-	function BugetCommander:init()
+	function BudgetCommander:init()
 		mist.scheduleFunction(self.scheduleDecission, {self}, timer.getTime() + self.decissionFrequency, self.decissionFrequency)
 	end
 end
