@@ -241,7 +241,7 @@ Spends the credits of a coalition on available support items.
 
 ## Constructor
 
-### BugetCommander:new(parameters)
+### BudgetCommander:new(parameters)
 
 Creates a new buget commander. Parameter should be a single table in the following format:
 
@@ -257,14 +257,14 @@ Creates a new buget commander. Parameter should be a single table in the followi
 
 Example:
 
-`bugetAI = BugetCommander:new({battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance=5}) `
+`budgetAI = BudgetCommander:new({battleCommander = bc, side=1, decissionFrequency=30*60, decissionVariance=15*60, skipChance=5}) `
 
 This will take control of the red coalition buget, and every 30 minutes (decissionFrequency) it will schedule an item to be bought after a random ammount of seconds between 1 second and 15 minutes (decissionVariance). When this time ellapses it will roll a 100 sided dice and if it lands on a number higher then 5 (skipChance), it will make a list of all items it can afford, and attempt buying a random item from that list. Buying an item can fail due to condition specified in the item action. In this case it will attempt buying another random item. This will be repeated up to 10 times or until an item is succesfully bought.
 
-### BugetCommander:init()
+### BudgetCommander:init()
 
 Will start the buget commander monitoring and decission process
 
 Example:
 
-`bugetAI:init()`
+`budgetAI:init()`
