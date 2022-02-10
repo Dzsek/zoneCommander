@@ -1354,11 +1354,18 @@ do
 							trigger.action.outTextForCoalition(self.side,'Capture +'..self.battleCommander.rewards.crate..' credits',5)
 						end
 					elseif self.side == crate:getCoalition() then
-						self:upgrade()
 						if self.battleCommander.playerRewardsOn then
-							self.battleCommander:addFunds(self.side, self.battleCommander.rewards.crate)
-							trigger.action.outTextForCoalition(self.side,'Resupply +'..self.battleCommander.rewards.crate..' credits',5)
+							if self:canRecieveSupply() then
+								self.battleCommander:addFunds(self.side, self.battleCommander.rewards.crate)
+								trigger.action.outTextForCoalition(self.side,'Resupply +'..self.battleCommander.rewards.crate..' credits',5)
+							else
+								local reward = self.battleCommander.rewards.crate * 0.25
+								self.battleCommander:addFunds(self.side, reward)
+								trigger.action.outTextForCoalition(self.side,'Resupply +'..reward..' credits (-75% due to no demand)',5)
+							end
 						end
+						
+						self:upgrade()
 					end
 					
 					crate:destroy()
@@ -1808,8 +1815,13 @@ do
 		local groupid = gr:getID()
 		if gr then
 			local un = gr:getUnit(1)
-			if Utils.getAGL(un) > 20 then
-				trigger.action.outTextForGroup(groupid, "Too high", 15)
+			if Utils.getAGL(un) > 50 then
+				trigger.action.outTextForGroup(groupid, "You are too high", 15)
+				return
+			end
+			
+			if mist.vec.mag(un:getVelocity())>5 then
+				trigger.action.outTextForGroup(groupid, "You are moving too fast", 15)
 				return
 			end
 			
@@ -2059,6 +2071,9 @@ end
 
 HercCargoDropSupply = {}
 do
+	HercCargoDropSupply.allowedCargo = {}
+	HercCargoDropSupply.allowedCargo['weapons.bombs.Generic Crate [20000lb]'] = true
+
 	HercCargoDropSupply.battleCommander = nil
 	function HercCargoDropSupply.init(bc)
 		HercCargoDropSupply.battleCommander = bc
@@ -2066,8 +2081,8 @@ do
 		cargodropev = {}
 		function cargodropev:onEvent(event)
 			if event.id == world.event.S_EVENT_SHOT then
-				local name = event.weapon:getDesc().typeName:sub(15, -1)
-				if name == "Generic Crate [20000lb]" then
+				local name = event.weapon:getDesc().typeName
+				if HercCargoDropSupply.allowedCargo[name] then
 					local alt = Utils.getAGL(event.weapon)
 					if alt < 5 then
 						HercCargoDropSupply.ProcessCargo(event.weapon)
