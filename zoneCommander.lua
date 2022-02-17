@@ -1496,12 +1496,16 @@ end
 
 GroupCommander = {}
 do
-	--{ name='groupname', mission=['patrol', 'supply', 'attack'], targetzone='zonename', landsatcarrier=true }
+	--{ name='groupname', mission=['patrol', 'supply', 'attack'], targetzone='zonename', type=['air','carrier_air','surface'] }
 	function GroupCommander:new(obj)
 		obj = obj or {}
+		if not obj.type then
+			obj.type = 'air'
+		end
 		obj.state = 'inhangar'
 		obj.lastStateTime = timer.getAbsTime()
 		obj.zoneCommander = {}
+		obj.landsatcarrier = obj.type == 'carrier_air'
 		obj.side = 0
 		setmetatable(obj, self)
 		self.__index = self
@@ -1551,7 +1555,7 @@ do
 		return false
 	end
 	
-	function GroupCommander:update()
+	function GroupCommander:processAir()-- states: [inhangar, takeoff, inair, landed, dead]
 		local gr = Group.getByName(self.name)
 		if not gr or gr:getSize()==0 then
 			if gr and gr:getSize()==0 then
@@ -1618,6 +1622,68 @@ do
 					self.lastStateTime = timer.getAbsTime()
 				end
 			end
+		end
+	end
+	
+	function GroupCommander:processSurface()-- states: [inhangar, dead, enroute, atdestination]
+		local gr = Group.getByName(self.name)
+		if not gr or gr:getSize()==0 then
+			if gr and gr:getSize()==0 then
+				gr:destroy()
+			end
+		
+			if self.state ~= 'inhangar' and self.state ~= 'dead' then
+				self.state = 'dead'
+				self.lastStateTime = timer.getAbsTime()
+			end
+		end
+	
+		if self.state == 'inhangar' then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].hangar then
+				if self:shouldSpawn() then
+					mist.respawnGroup(self.name,true)
+					self.state = 'enroute'
+					self.lastStateTime = timer.getAbsTime()
+				end
+			end
+		elseif self.state =='enroute' then
+			local tg = self.zoneCommander.battleCommander:getZoneByName(self.targetzone)
+			if tg and gr and Utils.someOfGroupInZone(gr, tg.zone) then
+				self.state = 'atdestination'
+				self.lastStateTime = timer.getAbsTime()
+			end
+		elseif self.state =='atdestination' then
+			if self.mission == 'supply' then
+				if timer.getAbsTime() - self.lastStateTime > GlobalSettings.landedDespawnTime then
+					local tg = self.zoneCommander.battleCommander:getZoneByName(self.targetzone)
+					if gr and tg and Utils.someOfGroupInZone(gr, tg.zone) then
+						gr:destroy()
+						self.state = 'inhangar'
+						self.lastStateTime = timer.getAbsTime()
+						if tg.side == 0 then
+							tg:capture(self.side)
+						elseif tg.side == self.side then
+							tg:upgrade()
+						end
+					end
+				end
+			end
+		elseif self.state =='dead' then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].dead then
+				if self:shouldSpawn() then
+					mist.respawnGroup(self.name,true)
+					self.state = 'enroute'
+					self.lastStateTime = timer.getAbsTime()
+				end
+			end
+		end
+	end
+	
+	function GroupCommander:update()
+		if self.type == 'air' or self.type == 'carrier_air' then
+			self:processAir()
+		elseif self.type == 'surface' then
+			self:processSurface()
 		end
 	end
 end
@@ -2073,6 +2139,7 @@ HercCargoDropSupply = {}
 do
 	HercCargoDropSupply.allowedCargo = {}
 	HercCargoDropSupply.allowedCargo['weapons.bombs.Generic Crate [20000lb]'] = true
+	HercCargoDropSupply.herculesRegistry = {} -- {takeoffzone = string, lastlanded = time}
 
 	HercCargoDropSupply.battleCommander = nil
 	function HercCargoDropSupply.init(bc)
@@ -2085,10 +2152,38 @@ do
 				if HercCargoDropSupply.allowedCargo[name] then
 					local alt = Utils.getAGL(event.weapon)
 					if alt < 5 then
-						HercCargoDropSupply.ProcessCargo(event.weapon)
+						HercCargoDropSupply.ProcessCargo(event)
 					else
-						timer.scheduleFunction(HercCargoDropSupply.CheckCargo, event.weapon, timer.getTime() + 0.1)
+						timer.scheduleFunction(HercCargoDropSupply.CheckCargo, event, timer.getTime() + 0.1)
 					end
+				end
+			end
+			
+			if event.id == world.event.S_EVENT_TAKEOFF then
+				if event.initiator:getDesc().typeName == 'Hercules' then
+					local herc = HercCargoDropSupply.herculesRegistry[event.initiator:getName()]
+					
+					local zn = HercCargoDropSupply.battleCommander:getZoneOfUnit(event.initiator:getName())
+					if zn then
+						if not herc then
+							HercCargoDropSupply.herculesRegistry[event.initiator:getName()] = {takeoffzone = zn.zone}
+						elseif not herc.lastlanded or (herc.lastlanded+30)<timer.getTime() then
+							HercCargoDropSupply.herculesRegistry[event.initiator:getName()].takeoffzone = zn.zone
+						end
+						
+					end
+				end
+			end
+			
+			if event.id == world.event.S_EVENT_LAND then
+				if event.initiator:getDesc().typeName == 'Hercules' then
+					local herc = HercCargoDropSupply.herculesRegistry[event.initiator:getName()]
+					
+					if not herc then
+						HercCargoDropSupply.herculesRegistry[event.initiator:getName()] = {}
+					end
+					
+					HercCargoDropSupply.herculesRegistry[event.initiator:getName()].lastlanded = timer.getTime()
 				end
 			end
 		end
@@ -2096,9 +2191,16 @@ do
 		world.addEventHandler(cargodropev)
 	end
 
-	function HercCargoDropSupply.ProcessCargo(cargo)
+	function HercCargoDropSupply.ProcessCargo(shotevent)
+		local cargo = shotevent.weapon
 		local zn = HercCargoDropSupply.battleCommander:getZoneOfWeapon(cargo)
 		if zn and zn.active then
+			local herc = HercCargoDropSupply.herculesRegistry[shotevent.initiator:getName()]
+			if not herc or herc.takeoffzone == zn.zone then
+				cargo:destroy()
+				return
+			end
+			
 			local cargoSide = cargo:getCoalition()
 			if zn.side == 0 then
 				if HercCargoDropSupply.battleCommander.playerRewardsOn then
@@ -2121,16 +2223,22 @@ do
 				
 				zn:upgrade()
 			end
+			
+			cargo:destroy()
 		end
 	end
 	
-	function HercCargoDropSupply.CheckCargo(cargo, time)
-		local alt = Utils.getAGL(cargo)
-		if alt < 5 then
-			HercCargoDropSupply.ProcessCargo(cargo)
+	function HercCargoDropSupply.CheckCargo(shotevent, time)
+		local cargo = shotevent.weapon
+		if not cargo:isExist() then
 			return nil
 		end
 		
+		local alt = Utils.getAGL(cargo)
+		if alt < 5 then
+			HercCargoDropSupply.ProcessCargo(shotevent)
+			return nil
+		end
 		return time+0.1
 	end
 end
