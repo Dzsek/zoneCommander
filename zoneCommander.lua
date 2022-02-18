@@ -18,6 +18,12 @@ do
 		return {x = point.x, y = land.getHeight({x = point.x, y = point.z}), z= point.z}
 	end
 	
+	function Utils.getTableSize(tbl)
+		local cnt = 0
+		for i,v in pairs(tbl) do cnt=cnt+1 end
+		return cnt
+	end
+	
 	function Utils.getBearing(fromvec, tovec)
 		local fx = fromvec.x
 		local fy = fromvec.z
@@ -166,6 +172,12 @@ end
 
 JTAC = {}
 do
+	JTAC.categories = {}
+	JTAC.categories['SAM'] = {'SAM SR', 'SAM TR', 'IR Guided SAM','SAM LL','SAM CC'}
+	JTAC.categories['Infantry'] = {'Infantry'}
+	JTAC.categories['Armor'] = {'Tanks','IFV','APC'}
+	JTAC.categories['Support'] = {'Unarmed vehicles','Artillery'}
+
 	--{name = 'groupname'}
 	function JTAC:new(obj)
 		obj = obj or {}
@@ -173,9 +185,19 @@ do
 		obj.target = nil
 		obj.timerReference = nil
 		obj.tgtzone = nil
+		obj.priority = nil
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
+	end
+	
+	function JTAC:setPriority(prio)
+		self.priority = JTAC.categories[prio]
+		self.prioname = prio
+	end
+	
+	function JTAC:clearPriority()
+		self.priority = nil
 	end
 	
 	function JTAC:setTarget(unit)
@@ -201,13 +223,18 @@ do
 	end
 	
 	function JTAC:printTarget(makeitlast)
-		local toprint = nil
+		local toprint = ''
 		if self.target and self.tgtzone then
 			local tgtunit = Unit.getByName(self.target)
 			if tgtunit then
 				local pnt = tgtunit:getPoint()
 				local tgttype = tgtunit:getTypeName()
-				toprint = 'Lasing '..tgttype..' at '..self.tgtzone.zone..'\nCode: 1688\n'
+				
+				if self.priority then
+					toprint = 'Priority targets: '..self.prioname..'\n'
+				end
+				
+				toprint = toprint..'Lasing '..tgttype..' at '..self.tgtzone.zone..'\nCode: 1688\n'
 				local lat,lon,alt = coord.LOtoLL(pnt)
 				local mgrs = coord.LLtoMGRS(coord.LOtoLL(pnt))
 				toprint = toprint..'\nDDM:  '.. mist.tostringLL(lat,lon,3)
@@ -250,7 +277,7 @@ do
 		end
 		
 		local gr = Group.getByName(self.name)
-		if gr and self.tgtzone.side==0 or not self.tgtzone.active or self.tgtzone.side == gr:getCoalition() then
+		if gr and (self.tgtzone.side==0 or not self.tgtzone.active or self.tgtzone.side == gr:getCoalition()) then
 			gr:destroy()
 		end
 	end
@@ -268,6 +295,25 @@ do
 								table.insert(viabletgts, v2)
 							end
 						end
+					end
+				end
+				
+				if self.priority then
+					local priorityTargets = {}
+					for i,v in ipairs(viabletgts) do
+						for i2,v2 in ipairs(self.priority) do
+							if v:hasAttribute(v2) then
+								table.insert(priorityTargets, v)
+								break
+							end
+						end
+					end
+					
+					if #priorityTargets>0 then
+						viabletgts = priorityTargets
+					else
+						self:clearPriority()
+						trigger.action.outTextForCoalition(gr:getCoalition(), 'JTAC: No priority targets found', 10)
 					end
 				end
 				
@@ -697,13 +743,15 @@ do
 			for i2,v2 in pairs(v.built) do
 				unitTable[i2] = {}
 				local gr = Group.getByName(v2)
-				for i3,v3 in ipairs(gr:getUnits()) do
-					local desc = v3:getDesc()
-					table.insert(unitTable[i2], desc['typeName'])
+				if gr then
+					for i3,v3 in ipairs(gr:getUnits()) do
+						local desc = v3:getDesc()
+						table.insert(unitTable[i2], desc['typeName'])
+					end
 				end
 			end
 		
-			states.zones[v.zone] = { side = v.side, level = #v.built, remainingUnits = unitTable, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
+			states.zones[v.zone] = { side = v.side, level = Utils.getTableSize(v.built), remainingUnits = unitTable, destroyed=v:getDestroyedCriticalObjects(), active = v.active, triggers = {} }
 			
 			for i2,v2 in ipairs(v.triggers) do
 				if v2.id then
@@ -1143,7 +1191,7 @@ do
 		
 		local count = 0
 		if self.built then
-			count = #self.built
+			count = Utils.getTableSize(self.built)
 		end
 		
 		local status = self.zone..' status\n Controlled by: '..sidename
@@ -1227,7 +1275,7 @@ do
 			
 			self:weedOutRemainingUnits()
 		else
-			if #self.built < self.level then
+			if Utils.getTableSize(self.built) < self.level then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] and i<=self.level then
 						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
@@ -1445,7 +1493,7 @@ do
 			end
 		end
 			
-		if #self.built < #upgrades then
+		if Utils.getTableSize(self.built) < #upgrades then
 			return true
 		end
 		
@@ -1475,7 +1523,7 @@ do
 				end
 			end
 				
-			if not complete and #self.built < #upgrades then
+			if not complete and Utils.getTableSize(self.built) < #upgrades then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] then
 						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
@@ -1667,7 +1715,20 @@ do
 						end
 					end
 				end
+			elseif self.mission == 'attack' then
+				if timer.getAbsTime() - self.lastStateTime > GlobalSettings.landedDespawnTime then
+					local tg = self.zoneCommander.battleCommander:getZoneByName(self.targetzone)
+					if gr and tg and Utils.someOfGroupInZone(gr, tg.zone) then
+						if tg.side == 0 then
+							tg:capture(self.side)
+							gr:destroy()
+							self.state = 'inhangar'
+							self.lastStateTime = timer.getAbsTime()
+						end
+					end
+				end
 			end
+			
 		elseif self.state =='dead' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].dead then
 				if self:shouldSpawn() then

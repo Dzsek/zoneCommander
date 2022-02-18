@@ -114,7 +114,7 @@ convoy:addCriticalObject('convoy2')
 convoy:addCriticalObject('convoy3')
 convoy:addCriticalObject('convoy4')
 
-local oilbuildings = {'derrick1','derrick2','derrick3','pump1','pump2','pump3','pump4','pump5','pump6','pump7','pump8','tank1','tank2','tank3','tank4','oilref1','oilref2'}
+local oilbuildings = {'oilref1','oilref2'}
 for i,v in ipairs(oilbuildings) do
 	oilfields:addCriticalObject(v)
 end
@@ -177,7 +177,11 @@ dispatch = {
 		GroupCommander:new({name='factory5', mission='supply', targetzone='Foxtrot'}),
 		GroupCommander:new({name='factory6', mission='supply', targetzone='Foxtrot'}),
 		GroupCommander:new({name='factory7', mission='supply', targetzone='Echo'}),
-		GroupCommander:new({name='factory8', mission='supply', targetzone='Echo'})
+		GroupCommander:new({name='factory8', mission='supply', targetzone='Echo'}),
+		GroupCommander:new({name='factory-krymsk-supply', mission='supply', targetzone='Krymsk', type='surface'}),
+		GroupCommander:new({name='factory-delta-supply', mission='supply', targetzone='Delta', type='surface'}),
+		GroupCommander:new({name='factory-echo-supply', mission='supply', targetzone='Echo', type='surface'}),
+		GroupCommander:new({name='factory-foxtrot-supply', mission='supply', targetzone='Foxtrot', type='surface'})
 	},
 	echo={
 		GroupCommander:new({name='echo1', mission='supply', targetzone='SAM Site'}),
@@ -209,6 +213,13 @@ dispatch = {
 		GroupCommander:new({name='kras11', mission='patrol', targetzone='Echo'}),
 		GroupCommander:new({name='kras12', mission='patrol', targetzone='Delta'}),
 		GroupCommander:new({name='kras13', mission='patrol', targetzone='Factory'})
+	},
+	foxtrot={
+		GroupCommander:new({name='foxtrot-krymsk-attack', mission='attack', targetzone='Krymsk', type='surface'}),
+		GroupCommander:new({name='foxtrot-echo-attack', mission='attack', targetzone='Echo', type='surface'})
+	},
+	oilfields={
+		GroupCommander:new({name='oil-krymsk-supply', mission='supply', targetzone='Krymsk', type='surface'})
 	}
 }
 
@@ -220,6 +231,8 @@ charlie:addGroups(dispatch.charlie)
 factory:addGroups(dispatch.factory)
 echo:addGroups(dispatch.echo)
 krasnodar:addGroups(dispatch.krasnodar)
+foxtrot:addGroups(dispatch.foxtrot)
+oilfields:addGroups(dispatch.oilfields)
 
 bc:addZone(anapa)
 bc:addZone(alpha)
@@ -441,9 +454,7 @@ end)
 
 Group.getByName('jtacDrone'):destroy()
 local jtacTargetMenu = nil
-local jtacInfoMenu = nil
-local jtacNextTGTMenu = nil
-local jtacSmokeMenu = nil
+local jtacMenu = nil
 drone = JTAC:new({name = 'jtacDrone'})
 bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender)
 	
@@ -456,34 +467,28 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 			local zn = bc:getZoneByName(target)
 			drone:deployAtZone(zn)
 			
-			if not jtacInfoMenu then
-				jtacInfoMenu = missionCommands.addCommandForCoalition(2, 'JTAC target report', nil, function(dr)
+			if not jtacMenu then
+				jtacMenu = missionCommands.addSubMenuForCoalition(2, 'JTAC')
+				
+				missionCommands.addCommandForCoalition(2, 'Target report', jtacMenu, function(dr)
 					if Group.getByName(dr.name) then
 						dr:printTarget(true)
 					else
-						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
-						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
-						missionCommands.removeItemForCoalition(2, jtacSmokeMenu)
-						jtacInfoMenu = nil
-						jtacNextTGTMenu = nil
-						jtacSmokeMenu = nil
+						missionCommands.removeItemForCoalition(2, jtacMenu)
+						jtacMenu = nil
 					end
 				end, drone)
 				
-				jtacNextTGTMenu = missionCommands.addCommandForCoalition(2, 'JTAC Next Target', nil, function(dr)
+				missionCommands.addCommandForCoalition(2, 'Next Target', jtacMenu, function(dr)
 					if Group.getByName(dr.name) then
 						dr:searchTarget()
 					else
-						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
-						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
-						missionCommands.removeItemForCoalition(2, jtacSmokeMenu)
-						jtacInfoMenu = nil
-						jtacNextTGTMenu = nil
-						jtacSmokeMenu = nil
+						missionCommands.removeItemForCoalition(2, jtacMenu)
+						jtacMenu = nil
 					end
 				end, drone)
 				
-				jtacSmokeMenu = missionCommands.addCommandForCoalition(2, 'JTAC Deploy Smoke', nil, function(dr)
+				missionCommands.addCommandForCoalition(2, 'Deploy Smoke', jtacMenu, function(dr)
 					if Group.getByName(dr.name) then
 						local tgtunit = Unit.getByName(dr.target)
 						if tgtunit then
@@ -491,12 +496,31 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 							trigger.action.outTextForCoalition(2, 'JTAC target marked with ORANGE smoke', 10)
 						end
 					else
-						missionCommands.removeItemForCoalition(2, jtacInfoMenu)
-						missionCommands.removeItemForCoalition(2, jtacNextTGTMenu)
-						missionCommands.removeItemForCoalition(2, jtacSmokeMenu)
-						jtacInfoMenu = nil
-						jtacNextTGTMenu = nil
-						jtacSmokeMenu = nil
+						missionCommands.removeItemForCoalition(2, jtacMenu)
+						jtacMenu = nil
+					end
+				end, drone)
+				
+				local priomenu = missionCommands.addSubMenuForCoalition(2, 'Set Priority', jtacMenu)
+				for i,v in pairs(JTAC.categories) do
+					missionCommands.addCommandForCoalition(2, i, priomenu, function(dr, cat)
+						if Group.getByName(dr.name) then
+							dr:setPriority(cat)
+							dr:searchTarget()
+						else
+							missionCommands.removeItemForCoalition(2, jtacMenu)
+							jtacMenu = nil
+						end
+					end, drone, i)
+				end
+				
+				missionCommands.addCommandForCoalition(2, "Clear", priomenu, function(dr)
+					if Group.getByName(dr.name) then
+						dr:clearPriority()
+						dr:searchTarget()
+					else
+						missionCommands.removeItemForCoalition(2, jtacMenu)
+						jtacMenu = nil
 					end
 				end, drone)
 			end
