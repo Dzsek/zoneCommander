@@ -89,7 +89,7 @@ flavor = {
 	krasnodar='WPT 14\nAirbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
 }
 
-bc = BattleCommander:new('foothold_1.2.lua')
+bc = BattleCommander:new('foothold_1.3.lua')
 anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.alpha})
 bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo, flavorText=flavor.bravo})
@@ -304,6 +304,19 @@ end
 
 oilfields:registerTrigger('captured', showCredIncrease, 'oilfieldcaptured')
 factory:registerTrigger('captured', showCredIncrease, 'factorycaptured')
+
+krymsk:registerTrigger('captured', function(event,sender)
+	local kr = bc:getZoneByName('Krymsk')
+	if kr.side == 1 then
+		local krforces = { 'krymsk-gforce-1','krymsk-gforce-2','krymsk-gforce-3','krymsk-tforce-1' }
+		for _,v in ipairs(krforces) do
+			local g = Group.getByName(v)
+			if g then
+				g:destroy()
+			end
+		end
+	end
+end, 'krymskcaptured')
 
 local checkMissionComplete = function (event, sender)
 	local done = true
@@ -768,12 +781,57 @@ bc:registerShopItem('escort1', 'Red antiescort', 1000, function(sender)
 	trigger.action.outTextForCoalition(2,'Friendly cargo transport has entered the airspace from the south.',15)
 end)
 
+krymskForce = {
+	'krymsk-force-1',
+	'krymsk-force-2',
+	'krymsk-force-3',
+	'krymsk-gforce-1',
+	'krymsk-gforce-2',
+	'krymsk-gforce-3',
+	'krymsk-tforce-1',
+	'krymsk-aforce-1',
+	'krymsk-aforce-2',
+	'krymsk-aforce-3',
+}
+
+for _,v in ipairs(krymskForce) do Group.getByName(v):destroy() end
+
+bc:registerShopItem('krymskForce', 'Krymsk Assault', 1000, function(sender) 
+	for _,v in ipairs(krymskForce) do
+		local gr = Group.getByName(v)
+		if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+			return 'still alive'
+		end
+	end
+	
+	if bc:getZoneByName('Echo').side==1 and bc:getZoneByName('Krymsk').side==2 then
+		for _,v in ipairs(krymskForce) do
+			mist.respawnGroup('krymsk-force-1', true)
+			mist.respawnGroup('krymsk-force-2', true)
+			mist.respawnGroup('krymsk-force-3', true)
+			
+			if bc:getZoneByName('Delta').side==1 then
+				mist.respawnGroup('krymsk-tforce-1', true)
+			end
+			
+			mist.respawnGroup('krymsk-aforce-1', true)
+			mist.respawnGroup('krymsk-aforce-2', true)
+			mist.respawnGroup('krymsk-aforce-3', true)
+		end
+	
+		trigger.action.outTextForCoalition(2,'Enemy is starting an assault on Krymsk',15)
+	else
+		return 'zone no match'
+	end
+end)
+
 bc:addShopItem(1, 'redcas1', -1)
 bc:addShopItem(1, 'redcap1', -1)
 bc:addShopItem(1, 'redsead1', -1)
 bc:addShopItem(1, 'redmlrs1', -1)
 bc:addShopItem(1, 'intercept1', -1)
 bc:addShopItem(1, 'escort1', -1)
+bc:addShopItem(1, 'krymskForce', -1)
 
 budgetAI = BudgetCommander:new({ battleCommander = bc, side=1, decissionFrequency=20*60, decissionVariance=10*60, skipChance = 10})
 budgetAI:init()
