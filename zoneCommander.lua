@@ -11,6 +11,96 @@ Repo & documentation: https://github.com/Dzsek/zoneCommander
 Dzsekeb
 ]]
 
+CustomZone = {}
+do
+	function CustomZone:getByName(name)
+		obj = {}
+		obj.name = name
+		
+		local zd = nil
+		for _,v in ipairs(env.mission.triggers.zones) do
+			if v.name == name then
+				zd = v
+				break
+			end
+		end
+		
+		if not zd then
+			return nil
+		end
+		
+		obj.type = zd.type -- 2 == quad, 0 == circle
+		if obj.type == 0 then
+			obj.radius = zd.radius
+		elseif obj.type == 2 then
+			obj.vertices = {}
+			for _,v in ipairs(zd.verticies) do
+				local vertex = {
+					x = v.x,
+					y = 0,
+					z = v.y
+				}
+				table.insert(obj.vertices, vertex)
+			end
+		end
+		
+		obj.point = {
+			x = zd.x,
+			y = 0,
+			z = zd.y
+		}
+		
+		setmetatable(obj, self)
+		self.__index = self
+		return obj
+	end
+	
+	function CustomZone:isQuad()
+		return self.type==2
+	end
+	
+	function CustomZone:isCircle()
+		return self.type==0
+	end
+	
+	function CustomZone:isInside(point)
+		if self:isCircle() then
+			local dist = mist.utils.get3DDist(point, self.point)
+			return dist<self.radius
+		elseif self:isQuad() then
+			return mist.pointInPolygon(point, self.vertices)
+		end
+	end
+	
+	function CustomZone:draw(id, border, background)
+		if self:isCircle() then
+			trigger.action.circleToAll(-1,id,self.point, self.radius,border,background,1)
+		elseif self:isQuad() then
+			trigger.action.quadToAll(-1,id,self.vertices[1], self.vertices[2], self.vertices[3], self.vertices[4],border,background,1)
+		end
+	end
+	
+	function CustomZone:spawnGroup(grname)
+		local pnt = mist.getRandomPointInZone(self.name)
+		env.info('-------'..pnt.x..' '..pnt.y)
+		local vars = {
+			groupName = grname,
+			point = pnt,
+			action = 'clone',
+			disperse = true,
+			initTasks = true,
+			radius = 50
+		}
+		
+		local newgr = mist.teleportToPoint(vars)
+		
+		if not newgr then
+			newgr = mist.cloneInZone(grname, self.name, true, nil, {initTasks = true})
+		end
+		
+		return newgr;
+	end
+end
 
 Utils = {}
 do
@@ -61,20 +151,18 @@ do
 	end
 	
 	function Utils.isInZone(unit, zonename)
-		local zn = trigger.misc.getZone(zonename)
+		local zn = CustomZone:getByName(zonename)
 		if zn then
-			local dist = mist.utils.get3DDist(unit:getPosition().p,zn.point)
-			return dist<zn.radius
+			return zn:isInside(unit:getPosition().p)
 		end
 		
 		return false
 	end
 	
 	function Utils.isCrateSettledInZone(crate, zonename)
-		local zn = trigger.misc.getZone(zonename)
+		local zn = CustomZone:getByName(zonename)
 		if zn and crate then
-			local dist = mist.utils.get3DDist(crate:getPosition().p,zn.point)
-			return (dist<zn.radius and Utils.getAGL(crate)<1)
+			return (zn:isInside(crate:getPosition().p) and Utils.getAGL(crate)<1)
 		end
 		
 		return false
@@ -347,7 +435,7 @@ do
 	
 	function JTAC:deployAtZone(zoneCom)
 		self.tgtzone = zoneCom
-		local p = trigger.misc.getZone(self.tgtzone.zone).point
+		local p = CustomZone:getByName(self.tgtzone.zone).point
 		local vars = {}
 		vars.gpName = self.name
 		vars.action = 'respawn' 
@@ -721,7 +809,7 @@ do
 				end
 			end
 		else
-			local tz = trigger.misc.getZone(zn.zone)
+			local tz = CustomZone:getByName(zn.zone)
 			local target = {}
 			target.x = tz.point.x
 			target.y = tz.point.y
@@ -830,8 +918,14 @@ do
 		for i,v in pairs(mist.DBs.groupsByName) do
 			if v.units[1].skill == 'Client' then
 				for i2,v2 in ipairs(self.zones) do
-					local zn = trigger.misc.getZone(v2.zone)
-					if zn and mist.utils.get2DDist(v.units[1].point, zn.point) < zn.radius then
+					local zn = CustomZone:getByName(v2.zone)
+					local pos3d = {
+						x = v.units[1].point.x,
+						y = 0,
+						z = v.units[1].point.y
+					}
+					
+					if zn and zn:isInside(pos3d) then
 						local coa = 0
 						if v.coalition=='blue' then
 							coa = 2
@@ -867,8 +961,8 @@ do
 		end
 		
 		for i,v in ipairs(self.connections) do
-			local from = trigger.misc.getZone(v.from)
-			local to = trigger.misc.getZone(v.to)
+			local from = CustomZone:getByName(v.from)
+			local to = CustomZone:getByName(v.to)
 			
 			trigger.action.lineToAll(-1, 1000+i, from.point, to.point, {1,1,1,0.5}, 2)
 		end
@@ -1113,7 +1207,7 @@ do
 			return
 		end
 	
-		local zone = trigger.misc.getZone(self.zone)
+		local zone = CustomZone:getByName(self.zone)
 		local p = Utils.getPointOnSurface(zone.point)
 		trigger.action.smoke(p, 0)
 	end
@@ -1236,7 +1330,7 @@ do
 		end
 	
 	
-		local zone = trigger.misc.getZone(self.zone)
+		local zone = CustomZone:getByName(self.zone)
 		if not zone then
 			trigger.action.outText('ERROR: zone ['..self.zone..'] can not be found in the mission', 60)
 		end
@@ -1252,7 +1346,7 @@ do
 			color = {0.1,0.1,0.1,0.3}
 		end
 		
-		trigger.action.circleToAll(-1,self.index,zone.point, zone.radius,color,color,1)
+		zone:draw(self.index, color, color)
 		trigger.action.textToAll(-1,2000+self.index,zone.point, {0,0,0,0.5}, {0,0,0,0}, 15, true, self.zone)
 		
 		local upgrades
@@ -1268,7 +1362,7 @@ do
 			for i,v in pairs(self.remainingUnits) do
 				if not self.built[i] then
 					local upg = upgrades[i]
-					local gr = mist.cloneInZone(upg, self.zone, true, nil, {initTasks=true})
+					local gr = zone:spawnGroup(upg)
 					self.built[i] = gr.name
 				end
 			end
@@ -1278,7 +1372,7 @@ do
 			if Utils.getTableSize(self.built) < self.level then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] and i<=self.level then
-						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
+						local gr = zone:spawnGroup(v)
 						self.built[i] = gr.name
 					end
 				end
@@ -1522,11 +1616,12 @@ do
 					break
 				end
 			end
-				
+			
 			if not complete and Utils.getTableSize(self.built) < #upgrades then
+				local zone = CustomZone:getByName(self.zone)
 				for i,v in pairs(upgrades) do
 					if not self.built[i] then
-						local gr = mist.cloneInZone(v, self.zone, true, nil, {initTasks=true})
+						local gr = zone:spawnGroup(v)
 						self.built[i] = gr.name
 						trigger.action.outText(self.zone..' defenses upgraded', 5)
 						self:runTriggers('upgraded')
