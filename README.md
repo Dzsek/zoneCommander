@@ -2,13 +2,14 @@
 
 ## Constructor
 
-### BattleCommander:new()
+### BattleCommander:new(saveFileName)
 
 The BattleCommander object is the base object that monitors and runs the whole mission. You only need a single instance of this.
+The parameter should be the filename under which to save the persistence data.
 
 Example:
 
-`bc = BattleCommander:new()`
+`bc = BattleCommander:new('mymission.lua')`
 
 ## Add Zone
 
