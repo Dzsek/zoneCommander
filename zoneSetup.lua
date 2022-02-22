@@ -19,6 +19,10 @@ function allExcept(tbls, except)
 	return merge(tomerge)
 end
 
+carrier = {
+	blue = { "bShip","bShip"},
+	red = {}
+}
 
 airfield = {
 	blue = { "bInfantry", "bArmor", "bSam", "bSam2", "bSam3"},
@@ -74,6 +78,7 @@ cargoAccepts = {
 
 flavor = {
 	anapa = 'WPT 1\nHome base',
+	carrier = 'Carrier group',
 	alpha='WPT 2\nDefensive position next to the town of Natuhaevskaya',
 	bravo='WPT 3\nFARP next to the town of Damanka.\nWill let us launch helicopter attacks from a bit closer to the action.',
 	charlie='WPT 4\nDefensive position next to an old TV tower.\nWill provide allied air patrol to help capture Bravo',
@@ -91,6 +96,7 @@ flavor = {
 
 bc = BattleCommander:new('foothold_1.3.lua')
 anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
+carrier = ZoneCommander:new({zone='Carrier Group', side=2, level=2, upgrades=carrier, crates={}, flavorText=flavor.carrier})
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.alpha})
 bravo = ZoneCommander:new({zone='Bravo', side=1, level=3, upgrades=farp, crates=cargoAccepts.bravo, flavorText=flavor.bravo})
 charlie = ZoneCommander:new({zone='Charlie', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.charlie})
@@ -144,7 +150,8 @@ dispatch = {
 		GroupCommander:new({name='krym21', mission='patrol', targetzone='Delta'}),
 		GroupCommander:new({name='krym22', mission='supply', targetzone='Oil Fields'}),
 		GroupCommander:new({name='krym23', mission='supply', targetzone='Oil Fields'}),
-		GroupCommander:new({name='krym24', mission='attack', targetzone='Oil Fields'})
+		GroupCommander:new({name='krym24', mission='attack', targetzone='Oil Fields'}),
+		GroupCommander:new({name='krym25', mission='attack', targetzone='Bravo', type='surface'})
 	},
 	bravo = {
 		GroupCommander:new({name='bravo1', mission='supply', targetzone='Alpha'}),
@@ -235,6 +242,7 @@ foxtrot:addGroups(dispatch.foxtrot)
 oilfields:addGroups(dispatch.oilfields)
 
 bc:addZone(anapa)
+bc:addZone(carrier)
 bc:addZone(alpha)
 bc:addZone(bravo)
 bc:addZone(charlie)
@@ -837,7 +845,7 @@ budgetAI = BudgetCommander:new({ battleCommander = bc, side=1, decissionFrequenc
 budgetAI:init()
 --end red support
 
-lc = LogisticCommander:new({battleCommander = bc, supplyZones = {'Anapa', 'Krymsk', 'Factory', 'Bravo', 'Echo'}})
+lc = LogisticCommander:new({battleCommander = bc, supplyZones = {'Anapa', 'Krymsk', 'Factory', 'Bravo', 'Echo', 'Carrier Group'}})
 lc:init()
 
 

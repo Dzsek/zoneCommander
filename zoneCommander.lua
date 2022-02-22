@@ -30,9 +30,7 @@ do
 		end
 		
 		obj.type = zd.type -- 2 == quad, 0 == circle
-		if obj.type == 0 then
-			obj.radius = zd.radius
-		elseif obj.type == 2 then
+		if obj.type == 2 then
 			obj.vertices = {}
 			for _,v in ipairs(zd.verticies) do
 				local vertex = {
@@ -44,6 +42,7 @@ do
 			end
 		end
 		
+		obj.radius = zd.radius
 		obj.point = {
 			x = zd.x,
 			y = 0,
@@ -82,7 +81,6 @@ do
 	
 	function CustomZone:spawnGroup(grname)
 		local pnt = mist.getRandomPointInZone(self.name)
-		env.info('-------'..pnt.x..' '..pnt.y)
 		local vars = {
 			groupName = grname,
 			point = pnt,
@@ -1069,7 +1067,7 @@ do
 									
 									local claimfunc = function(context, zone, player, unitname)
 										local un = Unit.getByName(unitname)
-										if un and Utils.isInZone(un,zone.zone) and un:getPlayerName()==player then
+										if un and Utils.isInZone(un,zone.zone) and Utils.isLanded(un, true) and un:getPlayerName()==player then
 											if un:getLife() > 0 then
 												context:addFunds(zone.side, context.playerContributions[zone.side][player])
 												trigger.action.outTextForCoalition(zone.side, '['..player..'] redeemed '..context.playerContributions[zone.side][player]..' credits', 5)
