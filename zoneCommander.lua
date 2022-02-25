@@ -75,7 +75,7 @@ do
 		if self:isCircle() then
 			trigger.action.circleToAll(-1,id,self.point, self.radius,border,background,1)
 		elseif self:isQuad() then
-			trigger.action.quadToAll(-1,id,self.vertices[1], self.vertices[2], self.vertices[3], self.vertices[4],border,background,1)
+			trigger.action.quadToAll(-1,id,self.vertices[4], self.vertices[3], self.vertices[2], self.vertices[1],border,background,1)
 		end
 	end
 	
@@ -884,7 +884,7 @@ do
 	
 	function BattleCommander:addZone(zone)
 		table.insert(self.zones, zone)
-		zone.index = self:getZoneIndexByName(zone.zone)
+		zone.index = self:getZoneIndexByName(zone.zone)+3000
 		zone.battleCommander = self
 	end
 	
@@ -1345,7 +1345,8 @@ do
 		end
 		
 		zone:draw(self.index, color, color)
-		trigger.action.textToAll(-1,2000+self.index,zone.point, {0,0,0,0.5}, {0,0,0,0}, 15, true, self.zone)
+		trigger.action.textToAll(-1,2000+self.index,zone.point, {0,0,0,0.5}, {0,0,0,0}, 15, true, '')
+		trigger.action.setMarkupText(2000+self.index, self.zone)
 		
 		local upgrades
 		if self.side == 1 then
