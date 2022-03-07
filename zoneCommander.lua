@@ -941,6 +941,9 @@ do
 	function BattleCommander:init()
 		
 		self:initializeRestrictedGroups()
+		
+		table.sort(self.zones, function (a,b) return a.zone < b.zone end)
+		
 		local main =  missionCommands.addSubMenu('Zone Status')
 		local sub1
 		for i,v in ipairs(self.zones) do
@@ -1313,6 +1316,20 @@ do
 			status = status..'\n\n WARNING: This zone has been irreparably damaged and is no longer of any use'
 		end
 		
+		local zn = CustomZone:getByName(self.zone);
+		if zn then
+			local pnt = zn.point;
+			local lat,lon = coord.LOtoLL(pnt)
+			local mgrs = coord.LLtoMGRS(coord.LOtoLL(pnt))
+			local alt = land.getHeight({ x = pnt.x, y = pnt.z })
+			
+			status = status..'\n'
+			status = status..'\nDDM:  '.. mist.tostringLL(lat,lon,3)
+			status = status..'\nDMS:  '.. mist.tostringLL(lat,lon,2,true)
+			status = status..'\nMGRS: '.. mist.tostringMGRS(mgrs, 5)
+			status = status..'\n\nAlt: '..math.floor(alt)..'m'..' | '..math.floor(alt*3.280839895)..'ft'
+		end
+		
 		trigger.action.outText(status, 15)
 	end
 
@@ -1532,6 +1549,15 @@ do
 		for i,v in ipairs(groups) do
 			table.insert(self.groups, v)
 			v.zoneCommander = self
+		end
+	end
+	
+	function ZoneCommander:killAll()
+		for i,v in pairs(self.built) do
+			local gr = Group.getByName(v)
+			if gr then
+				gr:destroy()
+			end
 		end
 	end
 	
@@ -2315,7 +2341,7 @@ do
 			end
 			
 			if event.id == world.event.S_EVENT_TAKEOFF then
-				if event.initiator:getDesc().typeName == 'Hercules' then
+				if event.initiator and event.initiator:getDesc().typeName == 'Hercules' then
 					local herc = HercCargoDropSupply.herculesRegistry[event.initiator:getName()]
 					
 					local zn = HercCargoDropSupply.battleCommander:getZoneOfUnit(event.initiator:getName())
@@ -2331,7 +2357,7 @@ do
 			end
 			
 			if event.id == world.event.S_EVENT_LAND then
-				if event.initiator:getDesc().typeName == 'Hercules' then
+				if event.initiator and event.initiator:getDesc().typeName == 'Hercules' then
 					local herc = HercCargoDropSupply.herculesRegistry[event.initiator:getName()]
 					
 					if not herc then
