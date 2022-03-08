@@ -64,7 +64,7 @@ do
 	
 	function CustomZone:isInside(point)
 		if self:isCircle() then
-			local dist = mist.utils.get3DDist(point, self.point)
+			local dist = mist.utils.get2DDist(point, self.point)
 			return dist<self.radius
 		elseif self:isQuad() then
 			return mist.pointInPolygon(point, self.vertices)
