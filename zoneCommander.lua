@@ -263,7 +263,7 @@ do
 	JTAC.categories['Infantry'] = {'Infantry'}
 	JTAC.categories['Armor'] = {'Tanks','IFV','APC'}
 	JTAC.categories['Support'] = {'Unarmed vehicles','Artillery'}
-
+	
 	--{name = 'groupname'}
 	function JTAC:new(obj)
 		obj = obj or {}
@@ -272,9 +272,76 @@ do
 		obj.timerReference = nil
 		obj.tgtzone = nil
 		obj.priority = nil
+		obj.jtacMenu = nil
+		obj.side = Group.getByName(obj.name):getCoalition()
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
+	end
+	
+	function JTAC:showMenu()
+		local gr = Group.getByName(self.name)
+		if not gr then
+			return
+		end
+		
+		if not self.jtacMenu then
+			self.jtacMenu = missionCommands.addSubMenuForCoalition(self.side, 'JTAC')
+			
+			missionCommands.addCommandForCoalition(self.side, 'Target report', self.jtacMenu, function(dr)
+				if Group.getByName(dr.name) then
+					dr:printTarget(true)
+				else
+					missionCommands.removeItemForCoalition(dr.side, dr.jtacMenu)
+					dr.jtacMenu = nil
+				end
+			end, self)
+			
+			missionCommands.addCommandForCoalition(self.side, 'Next Target', self.jtacMenu, function(dr)
+				if Group.getByName(dr.name) then
+					dr:searchTarget()
+				else
+					missionCommands.removeItemForCoalition(dr.side, dr.jtacMenu)
+					dr.jtacMenu = nil
+				end
+			end, self)
+			
+			missionCommands.addCommandForCoalition(self.side, 'Deploy Smoke', self.jtacMenu, function(dr)
+				if Group.getByName(dr.name) then
+					local tgtunit = Unit.getByName(dr.target)
+					if tgtunit then
+						trigger.action.smoke(tgtunit:getPosition().p, 3)
+						trigger.action.outTextForCoalition(dr.side, 'JTAC target marked with ORANGE smoke', 10)
+					end
+				else
+					missionCommands.removeItemForCoalition(dr.side, dr.jtacMenu)
+					dr.jtacMenu = nil
+				end
+			end, self)
+			
+			local priomenu = missionCommands.addSubMenuForCoalition(self.side, 'Set Priority', self.jtacMenu)
+			for i,v in pairs(JTAC.categories) do
+				missionCommands.addCommandForCoalition(self.side, i, priomenu, function(dr, cat)
+					if Group.getByName(dr.name) then
+						dr:setPriority(cat)
+						dr:searchTarget()
+					else
+						missionCommands.removeItemForCoalition(dr.side, dr.jtacMenu)
+						dr.jtacMenu = nil
+					end
+				end, drone, i)
+			end
+			
+			missionCommands.addCommandForCoalition(self.side, "Clear", priomenu, function(dr)
+				if Group.getByName(dr.name) then
+					dr:clearPriority()
+					dr:searchTarget()
+				else
+					missionCommands.removeItemForCoalition(dr.side, dr.jtacMenu)
+					dr.jtacMenu = nil
+				end
+			end, drone)
+		end
 	end
 	
 	function JTAC:setPriority(prio)
@@ -363,8 +430,10 @@ do
 		end
 		
 		local gr = Group.getByName(self.name)
-		if gr and (self.tgtzone.side==0 or not self.tgtzone.active or self.tgtzone.side == gr:getCoalition()) then
+		if gr then
 			gr:destroy()
+			missionCommands.removeItemForCoalition(self.side, self.jtacMenu)
+			self.jtacMenu = nil
 		end
 	end
 	
@@ -469,6 +538,8 @@ do
 				altitude = 5000
 			} 
 		})
+		
+		self:searchTarget()
 	end
 end
 
@@ -525,8 +596,8 @@ do
 	end
 	
 	-- shops and currency functions
-	function BattleCommander:registerShopItem(id, name, cost, action)
-		self.shopItems[id] = { name=name, cost=cost, action=action }
+	function BattleCommander:registerShopItem(id, name, cost, action, altAction)
+		self.shopItems[id] = { name=name, cost=cost, action=action, altAction = altAction }
 	end
 	
 	function BattleCommander:addShopItem(coalition, id, ammount)
@@ -590,14 +661,17 @@ do
 		trigger.action.outTextForCoalition(coalition, text, 10)
 	end
 	
-	function BattleCommander:buyShopItem(coalition, id)
+	function BattleCommander:buyShopItem(coalition, id, alternateParams)
 		local item = self.shops[coalition][id]
 		if item then
 			if self.accounts[coalition] >= item.cost then
 				if item.stock == -1 or item.stock > 0 then
 					local success = true
 					local sitem = self.shopItems[id]
-					if type(sitem.action)=='function' then
+					
+					if alternateParams~=nil and type(sitem.altAction)=='function' then
+						success = sitem:altAction(alternateParams)
+					elseif type(sitem.action)=='function' then
 						success = sitem:action()
 					end
 					
@@ -882,6 +956,17 @@ do
 		return nil
 	end
 	
+	function BattleCommander:getZoneOfPoint(point)
+		for i,v in ipairs(self.zones) do
+			local z = CustomZone:getByName(v.zone)
+			if z and z:isInside(point) then
+				return v
+			end
+		end
+		
+		return nil
+	end
+	
 	function BattleCommander:addZone(zone)
 		table.insert(self.zones, zone)
 		zone.index = self:getZoneIndexByName(zone.zone)+3000
@@ -938,8 +1023,75 @@ do
 		end
 	end
 	
-	function BattleCommander:init()
+	function BattleCommander:startMonitorPlayerMarkers()
+		markEditedEvent = {}
+		markEditedEvent.context = self
+		function markEditedEvent:onEvent(event)
+			if event.id == 26 and event.text and event.initiator and event.initiator.getPlayerName and (event.coalition == 1 or event.coalition == 2) then -- mark changed
+				local success = false
+				
+				if event.text=='help' then
+					local toprint = 'Available Commands:'
+					toprint = toprint..'\nbuy - display available support items'
+					toprint = toprint..'\nbuy:item - buy support item'
+					toprint = toprint..'\nstatus - display zone status for 60 seconds'
+					toprint = toprint..'\nstatus:x - display zone status for x ammount of seconds'
+					trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
+					success = true
+				end
+				
+				if event.text:find('^buy') then
+					if event.text == 'buy' then
+						local toprint = 'Credits: '..self.context.accounts[event.coalition]..'\n'
+						local sorted = {}
+						for i,v in pairs(self.context.shops[event.coalition]) do table.insert(sorted,{i,v}) end
+						table.sort(sorted, function(a,b) return a[2].name < b[2].name end)
+						
+						for i2,v2 in pairs(sorted) do
+							local i = v2[1]
+							local v = v2[2]
+							toprint = toprint..'\n[Cost: '..v.cost..'] '..v.name..'   buy:'..i
+							if v.stock ~= -1 then
+								toprint = toprint..' [Available: '..v.stock..']'
+							end
+						end
+						trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
+						success = true
+					elseif event.text:find('^buy\:') then
+						local item = event.text:gsub('^buy\:', '')
+						local zn = self.context:getZoneOfPoint(event.pos)
+						self.context:buyShopItem(event.coalition,item,{zone = zn, point=event.pos})
+						success = true
+					end
+				end
+				
+				if event.text:find('^status') then
+					local zn = self.context:getZoneOfPoint(event.pos)
+					if zn then
+						local item = event.text:gsub('^status\:', '')
+						local timeout = 60
+						if tonumber(item) then
+							timeout = tonumber(item)
+						end
+						
+						if event.text=='status' or item then
+							zn:displayStatus(event.initiator:getGroup():getID(), timeout)
+							success = true
+						end
+					end
+				end
+				
+				if success then
+					trigger.action.removeMark(event.idx)
+				end
+			end
+		end
 		
+		world.addEventHandler(markEditedEvent)
+	end
+	
+	function BattleCommander:init()
+		self:startMonitorPlayerMarkers()
 		self:initializeRestrictedGroups()
 		
 		table.sort(self.zones, function (a,b) return a.zone < b.zone end)
@@ -1269,7 +1421,7 @@ do
 		end
 	end
 	
-	function ZoneCommander:displayStatus()
+	function ZoneCommander:displayStatus(grouptoshow, messagetimeout)
 		local upgrades = 0
 		local sidename = 'Neutral'
 		if self.side == 1 then
@@ -1330,7 +1482,16 @@ do
 			status = status..'\n\nAlt: '..math.floor(alt)..'m'..' | '..math.floor(alt*3.280839895)..'ft'
 		end
 		
-		trigger.action.outText(status, 15)
+		local timeout = 15
+		if messagetimeout then
+			timeout = messagetimeout
+		end
+		
+		if grouptoshow then
+			trigger.action.outTextForGroup(grouptoshow, status, timeout)
+		else
+			trigger.action.outText(status, timeout)
+		end
 	end
 
 	function ZoneCommander:init()
@@ -1580,6 +1741,12 @@ do
 			trigger.action.setMarkupColor(self.index, color)
 			self:runTriggers('captured')
 			self:upgrade()
+			
+			for _,v in ipairs(self.groups) do  -- reset group timers to random times so that they don't all spawn immediatly
+				if v.state == 'inhangar' or v.state == 'dead' then
+					v.lastStateTime = timer.getAbsTime() + math.random(60,30*60)
+				end
+			end
 		end
 		
 		if not self.active then

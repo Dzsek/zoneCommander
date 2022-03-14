@@ -94,7 +94,7 @@ flavor = {
 	krasnodar='WPT 14\nAirbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
 }
 
-bc = BattleCommander:new('foothold_1.3.lua')
+bc = BattleCommander:new('foothold_1.3.1.lua')
 anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
 carrier = ZoneCommander:new({zone='Carrier Group', side=2, level=2, upgrades=carrier, crates={}, flavorText=flavor.carrier})
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.alpha})
@@ -349,7 +349,7 @@ end
 
 Group.getByName('sead1'):destroy()
 local seadTargetMenu = nil
-bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 250, function(sender) 
+bc:registerShopItem('sead', 'F/A-18C SEAD mission', 250, function(sender) 
 	local gr = Group.getByName('sead1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'SEAD mission still in progress'
@@ -381,7 +381,7 @@ bc:registerShopItem('sead1', 'F/A-18C SEAD mission', 250, function(sender)
 end)
 
 Group.getByName('sweep1'):destroy()
-bc:registerShopItem('sweep1', 'F-14B Fighter Sweep', 150, function(sender) 
+bc:registerShopItem('sweep', 'F-14B Fighter Sweep', 150, function(sender) 
 	local gr = Group.getByName('sweep1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Fighter sweep mission still in progress'
@@ -391,7 +391,7 @@ end)
 
 Group.getByName('cas1'):destroy()
 local casTargetMenu = nil
-bc:registerShopItem('cas1', 'F-4 Ground Attack', 400, function(sender) 
+bc:registerShopItem('cas', 'F-4 Ground Attack', 400, function(sender) 
 	local gr = Group.getByName('cas1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Ground attack mission still in progress'
@@ -427,7 +427,7 @@ end)
 
 bc:addMonitoredROE('cruise1')
 local cruiseMissileTargetMenu = nil
-bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 800, function(sender)
+bc:registerShopItem('cruisemsl', 'Cruise Missile Strike', 800, function(sender)
 	if cruiseMissileTargetMenu then
 		return 'Choose target zone from F10 menu'
 	end
@@ -450,7 +450,7 @@ bc:registerShopItem('cruiseAttack', 'Cruise Missile Strike', 800, function(sende
 end)
 
 local upgradeMenu = nil
-bc:registerShopItem('upgradeZone', 'Resupply friendly Zone', 200, function(sender)
+bc:registerShopItem('supplies', 'Resupply friendly Zone', 200, function(sender)
 	if upgradeMenu then
 		return 'Choose zone from F10 menu'
 	end
@@ -475,9 +475,8 @@ end)
 
 Group.getByName('jtacDrone'):destroy()
 local jtacTargetMenu = nil
-local jtacMenu = nil
 drone = JTAC:new({name = 'jtacDrone'})
-bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender)
+bc:registerShopItem('jtac', 'MQ-1A Predator JTAC mission', 100, function(sender)
 	
 	if jtacTargetMenu then
 		return 'Choose target zone from F10 menu'
@@ -487,65 +486,7 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 		if jtacTargetMenu then
 			local zn = bc:getZoneByName(target)
 			drone:deployAtZone(zn)
-			
-			if not jtacMenu then
-				jtacMenu = missionCommands.addSubMenuForCoalition(2, 'JTAC')
-				
-				missionCommands.addCommandForCoalition(2, 'Target report', jtacMenu, function(dr)
-					if Group.getByName(dr.name) then
-						dr:printTarget(true)
-					else
-						missionCommands.removeItemForCoalition(2, jtacMenu)
-						jtacMenu = nil
-					end
-				end, drone)
-				
-				missionCommands.addCommandForCoalition(2, 'Next Target', jtacMenu, function(dr)
-					if Group.getByName(dr.name) then
-						dr:searchTarget()
-					else
-						missionCommands.removeItemForCoalition(2, jtacMenu)
-						jtacMenu = nil
-					end
-				end, drone)
-				
-				missionCommands.addCommandForCoalition(2, 'Deploy Smoke', jtacMenu, function(dr)
-					if Group.getByName(dr.name) then
-						local tgtunit = Unit.getByName(dr.target)
-						if tgtunit then
-							trigger.action.smoke(tgtunit:getPosition().p, 3)
-							trigger.action.outTextForCoalition(2, 'JTAC target marked with ORANGE smoke', 10)
-						end
-					else
-						missionCommands.removeItemForCoalition(2, jtacMenu)
-						jtacMenu = nil
-					end
-				end, drone)
-				
-				local priomenu = missionCommands.addSubMenuForCoalition(2, 'Set Priority', jtacMenu)
-				for i,v in pairs(JTAC.categories) do
-					missionCommands.addCommandForCoalition(2, i, priomenu, function(dr, cat)
-						if Group.getByName(dr.name) then
-							dr:setPriority(cat)
-							dr:searchTarget()
-						else
-							missionCommands.removeItemForCoalition(2, jtacMenu)
-							jtacMenu = nil
-						end
-					end, drone, i)
-				end
-				
-				missionCommands.addCommandForCoalition(2, "Clear", priomenu, function(dr)
-					if Group.getByName(dr.name) then
-						dr:clearPriority()
-						dr:searchTarget()
-					else
-						missionCommands.removeItemForCoalition(2, jtacMenu)
-						jtacMenu = nil
-					end
-				end, drone)
-			end
-			
+			drone:showMenu()
 			trigger.action.outTextForCoalition(2, 'Predator drone deployed over '..target, 15)
 			jtacTargetMenu = nil
 		end
@@ -557,7 +498,7 @@ bc:registerShopItem('jtac1', 'MQ-1A Predator JTAC mission', 100, function(sender
 end)
 
 local smokeTargetMenu = nil
-bc:registerShopItem('smokeTargets', 'Smoke markers', 20, function(sender)
+bc:registerShopItem('smoke', 'Smoke markers', 20, function(sender)
 	if smokeTargetMenu then
 		return 'Choose target zone from F10 menu'
 	end
@@ -608,13 +549,13 @@ bc:registerShopItem('awacs', 'AWACS', 100, function(sender)
 end)
 
 
-bc:addShopItem(2, 'sead1', -1)
-bc:addShopItem(2, 'sweep1', -1)
-bc:addShopItem(2, 'cas1', -1)
-bc:addShopItem(2, 'cruiseAttack', 12)
-bc:addShopItem(2, 'upgradeZone', -1)
-bc:addShopItem(2, 'jtac1', -1)
-bc:addShopItem(2, 'smokeTargets', -1)
+bc:addShopItem(2, 'sead', -1)
+bc:addShopItem(2, 'sweep', -1)
+bc:addShopItem(2, 'cas', -1)
+bc:addShopItem(2, 'cruisemsl', 12)
+bc:addShopItem(2, 'supplies', -1)
+bc:addShopItem(2, 'jtac', -1)
+bc:addShopItem(2, 'smoke', -1)
 bc:addShopItem(2, 'awacs', -1)
 
 --red support
