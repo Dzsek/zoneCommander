@@ -1027,7 +1027,7 @@ do
 		markEditedEvent = {}
 		markEditedEvent.context = self
 		function markEditedEvent:onEvent(event)
-			if event.id == 26 and event.text and event.initiator and event.initiator.getPlayerName and (event.coalition == 1 or event.coalition == 2) then -- mark changed
+			if event.id == 26 and event.text and (event.coalition == 1 or event.coalition == 2) then -- mark changed
 				local success = false
 				
 				if event.text=='help' then
@@ -1035,8 +1035,7 @@ do
 					toprint = toprint..'\nbuy - display available support items'
 					toprint = toprint..'\nbuy:item - buy support item'
 					toprint = toprint..'\nstatus - display zone status for 60 seconds'
-					toprint = toprint..'\nstatus:x - display zone status for x ammount of seconds'
-					trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
+					trigger.action.outTextForCoalition(event.coalition, toprint, 20)
 					success = true
 				end
 				
@@ -1055,7 +1054,7 @@ do
 								toprint = toprint..' [Available: '..v.stock..']'
 							end
 						end
-						trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
+						trigger.action.outTextForCoalition(event.coalition, toprint, 20)
 						success = true
 					elseif event.text:find('^buy\:') then
 						local item = event.text:gsub('^buy\:', '')
@@ -1065,19 +1064,14 @@ do
 					end
 				end
 				
-				if event.text:find('^status') then
+				if event.text=='status' then
 					local zn = self.context:getZoneOfPoint(event.pos)
 					if zn then
-						local item = event.text:gsub('^status\:', '')
-						local timeout = 60
-						if tonumber(item) then
-							timeout = tonumber(item)
-						end
-						
-						if event.text=='status' or item then
-							zn:displayStatus(event.initiator:getGroup():getID(), timeout)
-							success = true
-						end
+						zn:displayStatus(nil, 60)
+						success = true
+					else
+						success = true
+						trigger.action.outTextForCoalition(event.coalition, 'Status command only works inside a zone', 20)
 					end
 				end
 				
@@ -2090,7 +2084,7 @@ do
 	LogisticCommander.allowedTypes['SA342M'] = true
 	LogisticCommander.allowedTypes['SA342Minigun'] = true
 	LogisticCommander.allowedTypes['UH-60L'] = true
-	LogisticCommander.allowedTypes['AH-64D'] = true
+	LogisticCommander.allowedTypes['AH-64D_BLK_II'] = true
 	LogisticCommander.allowedTypes['UH-1H'] = true
 	LogisticCommander.allowedTypes['Mi-8MT'] = true
 	LogisticCommander.allowedTypes['Hercules'] = true
