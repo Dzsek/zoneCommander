@@ -378,10 +378,39 @@ bc:registerShopItem('sead', 'F/A-18C SEAD mission', 250, function(sender)
 	seadTargetMenu = bc:showTargetZoneMenu(2, 'SEAD Target', launchAttack, 1)
 	
 	trigger.action.outTextForCoalition(2, 'F/A-18C Hornets on route. Choose target zone from F10 menu', 15)
+end,
+function (sender, params)
+	if params.zone and params.zone.side == 1 then
+		local gr = Group.getByName('sead1')
+		if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+			return 'Ground attack mission still in progress'
+		end
+		
+		mist.respawnGroup('sead1', true)
+		mist.scheduleFunction(function(target)
+			if Group.getByName('sead1') then
+				local err = bc:engageZone(target, 'sead1')
+				if err then
+					return err
+				end
+				
+				trigger.action.outTextForCoalition(2, 'F/A-18C Hornets engaging SAMs at '..target, 15)
+			end
+		end,{params.zone.zone},timer.getTime()+2)
+	else
+		return 'Can only target enemy zone'
+	end
 end)
 
 Group.getByName('sweep1'):destroy()
 bc:registerShopItem('sweep', 'F-14B Fighter Sweep', 150, function(sender) 
+	local gr = Group.getByName('sweep1')
+	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+		return 'Fighter sweep mission still in progress'
+	end
+	mist.respawnGroup('sweep1', true)
+end,
+function (sender, params)
 	local gr = Group.getByName('sweep1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Fighter sweep mission still in progress'
@@ -423,6 +452,28 @@ bc:registerShopItem('cas', 'F-4 Ground Attack', 400, function(sender)
 	casTargetMenu = bc:showTargetZoneMenu(2, 'F-4 Target', launchAttack, 1)
 	
 	trigger.action.outTextForCoalition(2, 'F-4 Phantoms on route. Choose target zone from F10 menu', 15)
+end,
+function (sender, params)
+	if params.zone and params.zone.side == 1 then
+		local gr = Group.getByName('cas1')
+		if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+			return 'Ground attack mission still in progress'
+		end
+		
+		mist.respawnGroup('cas1', true)
+		mist.scheduleFunction(function(target)
+			if Group.getByName('cas1') then
+				local err = bc:engageZone(target, 'cas1')
+				if err then
+					return err
+				end
+				
+				trigger.action.outTextForCoalition(2, 'F-4 Phantoms engaging groups at '..target, 15)
+			end
+		end,{params.zone.zone},timer.getTime()+2)
+	else
+		return 'Can only target enemy zone'
+	end
 end)
 
 bc:addMonitoredROE('cruise1')
@@ -447,6 +498,18 @@ bc:registerShopItem('cruisemsl', 'Cruise Missile Strike', 800, function(sender)
 	cruiseMissileTargetMenu = bc:showTargetZoneMenu(2, 'Cruise Missile Target', launchAttack, 1)
 	
 	trigger.action.outTextForCoalition(2, 'Cruise missiles ready. Choose target zone from F10 menu', 15)
+end,
+function (sender, params)
+	if params.zone and params.zone.side == 1 then
+		local err = bc:fireAtZone(params.zone.zone, 'cruise1', true, 8)
+		if err then
+			return err
+		end
+		
+		trigger.action.outTextForCoalition(2, 'Launching cruise missiles at '..params.zone.zone, 15)
+	else
+		return 'Can only target enemy zone'
+	end
 end)
 
 local upgradeMenu = nil
@@ -471,6 +534,13 @@ bc:registerShopItem('supplies', 'Resupply friendly Zone', 200, function(sender)
 	upgradeMenu = bc:showTargetZoneMenu(2, 'Select Zone to resupply', upgradeZone, 2)
 	
 	trigger.action.outTextForCoalition(2, 'Supplies prepared. Choose zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 2 then
+		params.zone:upgrade()
+	else
+		return 'Can only target friendly zone'
+	end
 end)
 
 Group.getByName('jtacDrone'):destroy()
@@ -495,7 +565,41 @@ bc:registerShopItem('jtac', 'MQ-1A Predator JTAC mission', 100, function(sender)
 	jtacTargetMenu = bc:showTargetZoneMenu(2, 'Deploy JTAC', spawnAndOrbit, 1)
 	
 	trigger.action.outTextForCoalition(2, 'Choose which zone to deploy JTAC at from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 1 then
+		drone:deployAtZone(params.zone)
+		drone:showMenu()
+		trigger.action.outTextForCoalition(2, 'Predator drone deployed over '..params.zone.zone, 15)
+	else
+		return 'Can only target enemy zone'
+	end
 end)
+
+
+local smoketargets = function(tz)
+	local units = {}
+	for i,v in pairs(tz.built) do
+		local g = Group.getByName(v)
+		for i2,v2 in ipairs(g:getUnits()) do
+			table.insert(units, v2)
+		end
+	end
+	
+	local tgts = {}
+	for i=1,3,1 do
+		if #units > 0 then
+			local selected = math.random(1,#units)
+			table.insert(tgts, units[selected])
+			table.remove(units, selected)
+		end
+	end
+	
+	for i,v in ipairs(tgts) do
+		local pos = v:getPosition().p
+		trigger.action.smoke(pos, 1)
+	end
+end
 
 local smokeTargetMenu = nil
 bc:registerShopItem('smoke', 'Smoke markers', 20, function(sender)
@@ -506,28 +610,7 @@ bc:registerShopItem('smoke', 'Smoke markers', 20, function(sender)
 	local launchAttack = function(target)
 		if smokeTargetMenu then
 			local tz = bc:getZoneByName(target)
-			local units = {}
-			for i,v in pairs(tz.built) do
-				local g = Group.getByName(v)
-				for i2,v2 in ipairs(g:getUnits()) do
-					table.insert(units, v2)
-				end
-			end
-			
-			local tgts = {}
-			for i=1,3,1 do
-				if #units > 0 then
-					local selected = math.random(1,#units)
-					table.insert(tgts, units[selected])
-					table.remove(units, selected)
-				end
-			end
-			
-			for i,v in ipairs(tgts) do
-				local pos = v:getPosition().p
-				trigger.action.smoke(pos, 1)
-			end
-			
+			smoketargets(tz)
 			smokeTargetMenu = nil
 			trigger.action.outTextForCoalition(2, 'Targets marked with RED smoke at '..target, 15)
 		end
@@ -536,17 +619,26 @@ bc:registerShopItem('smoke', 'Smoke markers', 20, function(sender)
 	smokeTargetMenu = bc:showTargetZoneMenu(2, 'Smoke marker target', launchAttack, 1)
 	
 	trigger.action.outTextForCoalition(2, 'Choose target zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 1 then
+		smoketargets(params.zone)
+		trigger.action.outTextForCoalition(2, 'Targets marked with RED smoke at '..params.zone.zone, 15)
+	else
+		return 'Can only target enemy zone'
+	end
 end)
 
-Group.getByName('awacs1'):destroy()
-bc:registerShopItem('awacs', 'AWACS', 100, function(sender) 
+local spawnAwacs = function(sender) 
 	local gr = Group.getByName('awacs1')
 	if gr and gr:getSize()>0 and gr:getController():hasTask() then 
 		return 'Darkstar still active on 252.00 MHz AM'
 	end
 	mist.respawnGroup('awacs1', true)
 	trigger.action.outTextForCoalition(2,'Darkstar active on 252.00 MHz AM',15)
-end)
+end
+Group.getByName('awacs1'):destroy()
+bc:registerShopItem('awacs', 'AWACS', 100, spawnAwacs, spawnAwacs)
 
 
 bc:addShopItem(2, 'sead', -1)
