@@ -770,10 +770,13 @@ bc:registerShopItem('intercept1', 'Red intercept', 1000, function(sender)
 	if not cargoDieEvent then
 		local cargoPlaneDied = function(event)
 			if event.id==28 then
-				if event.initiator and event.initiator:getCoalition()==2 and event.target and event.target.getGroup then
-					if event.target:getGroup():getName()=='intercept1' then
+				if event.initiator and event.initiator:getCoalition()==2 and event.target and event.target.getName then
+					if event.target:getName()=='intercept1' then
 						trigger.action.outTextForCoalition(2,'Enemy cargo transport destroyed.\n+500 credits',15)
 						bc:addFunds(2,500)
+						mist.removeEventHandler(cargoDieEvent)
+						cargoDieEvent = nil
+					elseif not Unit.getByName('intercept1') then
 						mist.removeEventHandler(cargoDieEvent)
 						cargoDieEvent = nil
 					end
