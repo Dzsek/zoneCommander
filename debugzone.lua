@@ -65,6 +65,13 @@ ev = {}
 				trigger.action.removeMark(event.idx)
 			end
   		end
+		
+		if event.text=='resetsave' then
+			if bc and bc.saveFile then
+				Utils.saveTable(bc.saveFile, 'zonePersistance', {})
+				trigger.action.removeMark(event.idx)
+			end
+		end
   	end
   end
   

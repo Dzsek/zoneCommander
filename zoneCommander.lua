@@ -446,7 +446,7 @@ do
 					local tgtgr = Group.getByName(v)
 					if tgtgr and tgtgr:getSize()>0 then
 						for i2,v2 in ipairs(tgtgr:getUnits()) do
-							if v2:getLife()>1 then
+							if v2:getLife()>=1 then
 								table.insert(viabletgts, v2)
 							end
 						end
@@ -457,7 +457,7 @@ do
 					local priorityTargets = {}
 					for i,v in ipairs(viabletgts) do
 						for i2,v2 in ipairs(self.priority) do
-							if v:hasAttribute(v2) then
+							if v:hasAttribute(v2) and v:getLife()>=1 then
 								table.insert(priorityTargets, v)
 								break
 							end
@@ -492,7 +492,11 @@ do
 			elseif self.target then
 				local un = Unit.getByName(self.target)
 				if un then
-					self:setTarget(un)
+					if un:getLife()>=1 then
+						self:setTarget(un)
+					else
+						self:searchTarget()
+					end
 				end
 			end
 		else
@@ -512,7 +516,7 @@ do
 		mist.scheduleFunction(self.setOrbit, {self, self.tgtzone.zone, p}, timer.getTime()+1)
 		
 		if not self.timerReference then
-			self.timerReference = mist.scheduleFunction(self.searchIfNoTarget, {self}, timer.getTime()+10, 10)
+			self.timerReference = mist.scheduleFunction(self.searchIfNoTarget, {self}, timer.getTime()+5, 5)
 		end
 	end
 	
@@ -548,25 +552,36 @@ do
 	GlobalSettings.blockedDespawnTime = 10*60 --used to despawn aircraft that are stuck taxiing for some reason
 	GlobalSettings.landedDespawnTime = 1*60
 	
-	GlobalSettings.respawnTimers = {
+	GlobalSettings.respawnTimers = {}
+	GlobalSettings.respawnTimers[1] = {
+		supply = { dead=40*60, hangar=25*60},
+		patrol = { dead=40*60, hangar=2*60},
+		attack = { dead=40*60, hangar=2*60}
+	}
+	GlobalSettings.respawnTimers[2] = {
 		supply = { dead=40*60, hangar=25*60},
 		patrol = { dead=40*60, hangar=2*60},
 		attack = { dead=40*60, hangar=2*60}
 	}
 	
 	function GlobalSettings.resetDifficultyScaling()
-		GlobalSettings.respawnTimers = {
+		GlobalSettings.respawnTimers[1] = {
+			supply = { dead=40*60, hangar=25*60},
+			patrol = { dead=40*60, hangar=2*60},
+			attack = { dead=40*60, hangar=2*60}
+		}
+		GlobalSettings.respawnTimers[2] = {
 			supply = { dead=40*60, hangar=25*60},
 			patrol = { dead=40*60, hangar=2*60},
 			attack = { dead=40*60, hangar=2*60}
 		}
 	end
 	
-	function GlobalSettings.setDifficultyScaling(value)
+	function GlobalSettings.setDifficultyScaling(value, coalition)
 		GlobalSettings.resetDifficultyScaling()
-		for i,v in pairs(GlobalSettings.respawnTimers) do
+		for i,v in pairs(GlobalSettings.respawnTimers[coalition]) do
 			for i2,v2 in pairs(v) do
-				GlobalSettings.respawnTimers[i][i2] = math.floor(GlobalSettings.respawnTimers[i][i2] * value)
+				GlobalSettings.respawnTimers[coalition][i][i2] = math.floor(GlobalSettings.respawnTimers[coalition][i][i2] * value)
 			end
 		end
 	end
@@ -1035,7 +1050,13 @@ do
 					toprint = toprint..'\nbuy - display available support items'
 					toprint = toprint..'\nbuy:item - buy support item'
 					toprint = toprint..'\nstatus - display zone status for 60 seconds'
-					trigger.action.outTextForCoalition(event.coalition, toprint, 20)
+					
+					if event.initiator then
+						trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
+					else
+						trigger.action.outTextForCoalition(event.coalition, toprint, 20)
+					end
+					
 					success = true
 				end
 				
@@ -1054,7 +1075,13 @@ do
 								toprint = toprint..' [Available: '..v.stock..']'
 							end
 						end
-						trigger.action.outTextForCoalition(event.coalition, toprint, 20)
+						
+						if event.initiator then
+							trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
+						else
+							trigger.action.outTextForCoalition(event.coalition, toprint, 20)
+						end
+						
 						success = true
 					elseif event.text:find('^buy\:') then
 						local item = event.text:gsub('^buy\:', '')
@@ -1067,11 +1094,20 @@ do
 				if event.text=='status' then
 					local zn = self.context:getZoneOfPoint(event.pos)
 					if zn then
-						zn:displayStatus(nil, 60)
+						if event.initiator then
+							zn:displayStatus(event.initiator:getGroup():getID(), 60)
+						else
+							zn:displayStatus(nil, 60)
+						end
+						
 						success = true
 					else
 						success = true
-						trigger.action.outTextForCoalition(event.coalition, 'Status command only works inside a zone', 20)
+						if event.initiator then
+							trigger.action.outTextForGroup(event.initiator:getGroup():getID(), 'Status command only works inside a zone', 20)
+						else
+							trigger.action.outTextForCoalition(event.coalition, 'Status command only works inside a zone', 20)
+						end
 					end
 				end
 				
@@ -1144,6 +1180,7 @@ do
 	function BattleCommander:startRewardPlayerContribution(defaultReward, rewards)
 		self.playerRewardsOn = true
 		self.rewards = rewards
+		self.defaultReward = defaultReward
 		local ev = {}
 		ev.context = self
 		ev.rewards = rewards
@@ -1171,37 +1208,10 @@ do
 					if (event.id==28) then --killed unit
 						if event.target.getCoalition and side ~= event.target:getCoalition() then
 							if self.context.playerContributions[side][pname] ~= nil then
-								if event.target:getCategory() == Object.Category.UNIT then
-									local targetType = event.target:getDesc().category
-									local earning = self.default
-									
-									if targetType == Unit.Category.AIRPLANE and self.rewards.airplane then
-										earning = self.rewards.airplane
-										trigger.action.outTextForGroup(groupid, '['..pname..'] Aircraft kill +'..earning..' credits', 5)
-									elseif targetType == Unit.Category.HELICOPTER and self.rewards.helicopter then
-										earning = self.rewards.helicopter
-										trigger.action.outTextForGroup(groupid, '['..pname..'] Helicopter kill +'..earning..' credits', 5)
-									elseif targetType == Unit.Category.GROUND_UNIT then
-										if event.target:hasAttribute('Infantry') and self.rewards.infantry then
-											earning = self.rewards.infantry
-											trigger.action.outTextForGroup(groupid, '['..pname..'] Infantry kill +'..earning..' credits', 5)
-										elseif (event.target:hasAttribute('SAM SR') or event.target:hasAttribute('SAM TR') or event.target:hasAttribute('IR Guided SAM')) and self.rewards.sam then
-											earning = self.rewards.sam
-											trigger.action.outTextForGroup(groupid, '['..pname..'] SAM kill +'..earning..' credits', 5)
-										else
-											earning = self.rewards.ground
-											trigger.action.outTextForGroup(groupid, '['..pname..'] Ground kill +'..earning..' credits', 5)
-										end
-									elseif targetType == Unit.Category.SHIP and self.rewards.ship then
-										earning = self.rewards.ship
-										trigger.action.outTextForGroup(groupid, '['..pname..'] Ship kill +'..earning..' credits', 5)
-									elseif targetType == Unit.Category.STRUCTURE and self.rewards.structure then
-										earning = self.rewards.structure
-										trigger.action.outTextForGroup(groupid, '['..pname..'] Structure kill +'..earning..' credits', 5)
-									else
-										trigger.action.outTextForGroup(groupid, '['..pname..'] Unit kill +'..earning..' credits', 5)
-									end
-									
+								local earning,message = self.context:objectToRewardPoints2(event.target)
+								
+								if earning and message then
+									trigger.action.outTextForGroup(groupid,'['..pname..'] '..message, 5)
 									self.context.playerContributions[side][pname] = self.context.playerContributions[side][pname] + earning
 								end
 							end
@@ -1259,6 +1269,73 @@ do
 		
 		mist.scheduleFunction(resetPoints, {self, 1}, timer.getTime() + 1, 60)
 		mist.scheduleFunction(resetPoints, {self, 2}, timer.getTime() + 1, 60)
+	end
+	
+	function BattleCommander:objectToRewardPoints(object) -- returns points,message
+		if object:getCategory() == Object.Category.UNIT then
+			local targetType = object:getDesc().category
+			local earning = self.defaultReward
+			local message = 'Unit kill +'..earning..' credits'
+			
+			if targetType == Unit.Category.AIRPLANE and self.rewards.airplane then
+				earning = self.rewards.airplane
+				message = 'Aircraft kill +'..earning..' credits'
+			elseif targetType == Unit.Category.HELICOPTER and self.rewards.helicopter then
+				earning = self.rewards.helicopter
+				message = 'Helicopter kill +'..earning..' credits'
+			elseif targetType == Unit.Category.GROUND_UNIT then
+				if object:hasAttribute('Infantry') and self.rewards.infantry then
+					earning = self.rewards.infantry
+					message = 'Infantry kill +'..earning..' credits'
+				elseif (object:hasAttribute('SAM SR') or object:hasAttribute('SAM TR') or object:hasAttribute('IR Guided SAM')) and self.rewards.sam then
+					earning = self.rewards.sam
+					message = 'SAM kill +'..earning..' credits'
+				else
+					earning = self.rewards.ground
+					message = 'Ground kill +'..earning..' credits'
+				end
+			elseif targetType == Unit.Category.SHIP and self.rewards.ship then
+				earning = self.rewards.ship
+				message = 'Ship kill +'..earning..' credits'
+			elseif targetType == Unit.Category.STRUCTURE and self.rewards.structure then
+				earning = self.rewards.structure
+				message = 'Structure kill +'..earning..' credits'
+			end
+			
+			return earning,message
+		end
+	end
+	
+	function BattleCommander:objectToRewardPoints2(object) -- returns points,message
+		local earning = self.defaultReward
+		local message = 'Unit kill +'..earning..' credits'
+		
+		if object:hasAttribute('Planes') and self.rewards.airplane then
+			earning = self.rewards.airplane
+			message = 'Aircraft kill +'..earning..' credits'
+		elseif object:hasAttribute('Helicopters') and self.rewards.helicopter then
+			earning = self.rewards.helicopter
+			message = 'Helicopter kill +'..earning..' credits'
+		elseif object:hasAttribute('Infantry') and self.rewards.infantry then
+			earning = self.rewards.infantry
+			message = 'Infantry kill +'..earning..' credits'
+		elseif (object:hasAttribute('SAM SR') or object:hasAttribute('SAM TR') or object:hasAttribute('IR Guided SAM')) and self.rewards.sam then
+			earning = self.rewards.sam
+			message = 'SAM kill +'..earning..' credits'
+		elseif object:hasAttribute('Ships') and self.rewards.ship then
+			earning = self.rewards.ship
+			message = 'Ship kill +'..earning..' credits'
+		elseif object:hasAttribute('Ground Units') then
+			earning = self.rewards.ground
+			message = 'Ground kill +'..earning..' credits'
+		elseif object:hasAttribute('Buildings') and self.rewards.structure then
+			earning = self.rewards.structure
+			message = 'Structure kill +'..earning..' credits'
+		else
+			return -- object does not have any of the attributes
+		end
+		
+		return earning,message
 	end
 	
 	function BattleCommander:update()
@@ -1843,7 +1920,7 @@ do
 	
 	function GroupCommander:init()
 		self.state = 'inhangar'
-		self.lastStateTime = timer.getAbsTime() + math.random(60,30*60)
+		self.lastStateTime = timer.getAbsTime() + math.random(1,30*60)
 		local gr = Group.getByName(self.name)
 		if gr then
 			self.side = gr:getCoalition()
@@ -1886,6 +1963,7 @@ do
 	
 	function GroupCommander:processAir()-- states: [inhangar, takeoff, inair, landed, dead]
 		local gr = Group.getByName(self.name)
+		local coalition = self.side
 		if not gr or gr:getSize()==0 then
 			if gr and gr:getSize()==0 then
 				gr:destroy()
@@ -1896,9 +1974,9 @@ do
 				self.lastStateTime = timer.getAbsTime()
 			end
 		end
-	
+		
 		if self.state == 'inhangar' then
-			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].hangar then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].hangar then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'takeoff'
@@ -1944,7 +2022,7 @@ do
 				end
 			end
 		elseif self.state =='dead' then
-			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].dead then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].dead then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'takeoff'
@@ -1956,6 +2034,7 @@ do
 	
 	function GroupCommander:processSurface()-- states: [inhangar, dead, enroute, atdestination]
 		local gr = Group.getByName(self.name)
+		local coalition = self.side
 		if not gr or gr:getSize()==0 then
 			if gr and gr:getSize()==0 then
 				gr:destroy()
@@ -1968,7 +2047,7 @@ do
 		end
 	
 		if self.state == 'inhangar' then
-			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].hangar then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].hangar then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'enroute'
@@ -2011,7 +2090,7 @@ do
 			end
 			
 		elseif self.state =='dead' then
-			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[self.mission].dead then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].dead then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'enroute'
