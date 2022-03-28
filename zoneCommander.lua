@@ -803,7 +803,7 @@ do
 		return menu
 	end
 	
-	function BattleCommander:engageZone(tgtzone, groupname)
+	function BattleCommander:engageZone(tgtzone, groupname, expendAmmount)
 		local zn = self:getZoneByName(tgtzone)
 		local group = Group.getByName(groupname)
 		
@@ -818,13 +818,19 @@ do
 		local cnt=group:getController()
 		cnt:popTask()
 		
+		local expCount = AI.Task.WeaponExpend.ONE
+		if expendAmmount then
+			expCount = expendAmmount
+		end
+		
 		for i,v in pairs(zn.built) do
 			local g = Group.getByName(v)
 			if g then
 				task = { 
 				  id = 'AttackGroup', 
 				  params = { 
-					groupId = g:getID()
+					groupId = g:getID(),
+					expend = expCount
 				  } 
 				}
 				
