@@ -741,10 +741,10 @@ do
 			if count<10 then
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, shopmenu, self.buyShopItem, self, coalition, i)
 			elseif count==10 then
-				sub1 = missionCommands.addSubMenuForCoalition("More", shopmenu)
+				sub1 = missionCommands.addSubMenuForCoalition(coalition, "More", shopmenu)
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
 			elseif count%9==1 then
-				sub1 = missionCommands.addSubMenuForCoalition("More", sub1)
+				sub1 = missionCommands.addSubMenuForCoalition(coalition, "More", sub1)
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
 			else
 				missionCommands.addCommandForCoalition(coalition, '['..v.cost..'] '..v.name, sub1, self.buyShopItem, self, coalition, i)
@@ -837,6 +837,20 @@ do
 				cnt:pushTask(task)
 			end
 		end
+	end
+	
+	function BattleCommander:startFiringAtZone(groupname, zonename, minutes)
+		timer.scheduleFunction(function(param, time)
+			local gr = Group.getByName(param.group)
+			local abu = param.context:getZoneByName(param.zone)
+			
+			if not abu or abu.side ~= 2 then return nil end
+			if not gr then return nil end
+			
+			param.context:fireAtZone(abu.zone, param.group, true, 1, 50)
+			return time+(param.period*60)
+			
+		end, {group = groupname, zone = zonename, context=self, period = minutes}, timer.getTime()+5)
 	end
 	
 	function BattleCommander:fireAtZone(tgtzone, groupname, precise, ammount, ammountPerTarget)
