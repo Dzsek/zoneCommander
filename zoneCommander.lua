@@ -598,17 +598,40 @@ do
 	BattleCommander.playerContributions = {[1]={}, [2]={}}
 	BattleCommander.playerRewardsOn = false
 	BattleCommander.rewards = {}
+	BattleCommander.difficultyModifier = 0
+	BattleCommander.lastDiffChange = 0
 	
-	function BattleCommander:new(savepath)
+	function BattleCommander:new(savepath, difficulty) -- difficulty = {start = 1.4, min = -0.5, max = 0.5, escalation = 0.1, fade = 0.1, fadeTime = 30*60, coalition=1} --coalition 1:red 2:blue
 		local obj = {}
 		obj.saveFile = 'zoneCommander.lua'
 		if savepath then
 			obj.saveFile = savepath
 		end
+		
+		obj.difficulty = difficulty
+		
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
 	end
+	
+	--difficulty scaling
+	
+	function BattleCommander:increaseDifficulty()
+		self.difficultyModifier = math.max(self.difficultyModifier-self.difficulty.escalation, self.difficulty.min)
+		GlobalSettings.setDifficultyScaling(self.difficulty.start + self.difficultyModifier, self.difficulty.coalition)
+		self.lastDiffChange = timer.getAbsTime()
+		env.info('increasing diff: '..self.difficultyModifier)
+	end
+	
+	function BattleCommander:decreaseDifficulty()
+		self.difficultyModifier = math.min(self.difficultyModifier+self.difficulty.fade, self.difficulty.max)
+		GlobalSettings.setDifficultyScaling(self.difficulty.start + self.difficultyModifier,self.difficulty.coalition)
+		self.lastDiffChange = timer.getAbsTime()
+		env.info('decreasing diff: '..self.difficultyModifier)
+	end
+	
+	--end difficulty scaling
 	
 	-- shops and currency functions
 	function BattleCommander:registerShopItem(id, name, cost, action, altAction)
@@ -957,7 +980,7 @@ do
 		
 		states.accounts = self.accounts
 		states.shops = self.shops
-		
+		states.difficultyModifier = self.difficultyModifier
 		return states
 	end
 	
@@ -1143,6 +1166,10 @@ do
 	function BattleCommander:init()
 		self:startMonitorPlayerMarkers()
 		self:initializeRestrictedGroups()
+		
+		if self.difficulty then
+			self.lastDiffChange = timer.getAbsTime()
+		end
 		
 		table.sort(self.zones, function (a,b) return a.zone < b.zone end)
 		
@@ -1366,6 +1393,12 @@ do
 		for i,v in ipairs(self.monitorROE) do
 			self:checkROE(v)
 		end
+		
+		if self.difficulty then
+			if timer.getAbsTime()-self.lastDiffChange > self.difficulty.fadeTime then
+				self:decreaseDifficulty()
+			end
+		end
 	end
 	
 	function BattleCommander:saveToDisk()
@@ -1418,6 +1451,13 @@ do
 			
 			if zonePersistance.shops then
 				self.shops = zonePersistance.shops
+			end
+			
+			if zonePersistance.difficultyModifier then
+				self.difficultyModifier = zonePersistance.difficultyModifier
+				if self.difficulty then
+					GlobalSettings.setDifficultyScaling(self.difficulty.start + self.difficultyModifier, self.difficulty.coalition)
+				end
 			end
 		end
 	end
@@ -1741,6 +1781,10 @@ do
 		end
 		
 		if empty and self.side ~= 0 and self.active then
+			if self.battleCommander.difficulty and self.side == self.battleCommander.difficulty.coalition then
+				self.battleCommander:increaseDifficulty()
+			end
+		
 			self.side = 0
 			
 			trigger.action.outText(self.zone..' is now neutral ', 5)
@@ -1837,6 +1881,10 @@ do
 				if v.state == 'inhangar' or v.state == 'dead' then
 					v.lastStateTime = timer.getAbsTime() + math.random(60,30*60)
 				end
+			end
+			
+			if self.battleCommander.difficulty and newside == self.battleCommander.difficulty.coalition then
+				self.battleCommander:decreaseDifficulty()
 			end
 		end
 		

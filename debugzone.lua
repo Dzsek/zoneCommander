@@ -28,6 +28,18 @@ ev = {}
   			end
   		end
 		
+		if event.text=='spawn' then
+  			local z = bc:getZoneOfPoint(event.pos)
+  			if z then
+				for i,v in ipairs(z.groups) do
+					if v.state == 'inhangar' or v.state == 'dead' then
+						v.lastStateTime = v.lastStateTime - (24*60*60)
+					end
+				end
+				trigger.action.removeMark(event.idx)
+  			end
+  		end
+		
 		if event.text:find('^capture\:') then
   			local s = event.text:gsub('^capture\:', '')
   			local side = tonumber(s)
