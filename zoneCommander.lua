@@ -2221,6 +2221,57 @@ do
 	end
 end
 
+EventCommander = {}
+do
+	--{ decissionFrequency=seconds, decissionVariance=seconds, skipChance=percent}
+	function EventCommander:new(obj)
+		obj = obj or {}
+		obj.events = {}
+		setmetatable(obj, self)
+		self.__index = self
+		return obj
+	end
+	
+	function EventCommander:addEvent(event)--{id=string, action=function, canExecute=function}
+		table.insert(self.events, event)
+	end
+	
+	function EventCommander:triggerEvent(id)
+		for _,v in ipairs(self.events) do
+			if v.id == id and v:canExecute() then
+				v:action()
+				break
+			end
+		end
+	end
+	
+	function EventCommander:chooseAndStart()
+		local canRun = {}
+		for i,v in ipairs(self.events) do
+			if v:canExecute() then
+				table.insert(canRun, v)
+			end
+		end
+		
+		if #canRun == 0 then return end
+		
+		local dice = math.random(1,100)
+		if dice > self.skipChance then
+			local choice = math.random(1, #canRun)
+			local err = canRun[choice]:action()
+		end
+	end
+	
+	function EventCommander:scheduleDecission()
+		local variance = math.random(1, self.decissionVariance)
+		mist.scheduleFunction(self.chooseAndStart, {self}, timer.getTime() + variance)
+	end
+	
+	function EventCommander:init()
+		mist.scheduleFunction(self.scheduleDecission, {self}, timer.getTime() + self.decissionFrequency, self.decissionFrequency)
+	end
+end
+
 LogisticCommander = {}
 do
 	LogisticCommander.allowedTypes = {}
