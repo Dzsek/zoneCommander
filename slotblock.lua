@@ -11,8 +11,6 @@ function slotblock.onPlayerTryChangeSlot(playerId, side, slotId)
 			return false
 		end
 	end
-	
-	return true
 end
 
 DCS.setUserCallbacks(slotblock)
