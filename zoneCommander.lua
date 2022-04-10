@@ -662,7 +662,7 @@ do
 	end
 	
 	function BattleCommander:addFunds(coalition, ammount)
-		self.accounts[coalition] = self.accounts[coalition] + ammount
+		self.accounts[coalition] = math.max(self.accounts[coalition] + ammount,0)
 	end
 	
 	function BattleCommander:printShopStatus(coalition)
