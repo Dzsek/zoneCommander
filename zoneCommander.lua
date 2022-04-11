@@ -79,21 +79,45 @@ do
 		end
 	end
 	
+	function CustomZone:getRandomSpawnZone()
+		local spawnZones = {}
+		for i=1,10,1 do
+			local zname = self.name..'-'..i
+			if trigger.misc.getZone(zname) then
+				table.insert(spawnZones, zname)
+			else
+				break
+			end
+		end
+		
+		if #spawnZones == 0 then return nil end
+		
+		local choice = math.random(1, #spawnZones)
+		return spawnZones[choice]
+	end
+	
 	function CustomZone:spawnGroup(grname)
-		local pnt = mist.getRandomPointInZone(self.name)
+		local spname = self.name
+		
+		local spawnzone = self:getRandomSpawnZone()
+		if spawnzone then
+			spname = spawnzone
+		end
+	
+		local pnt = mist.getRandomPointInZone(spname)
 		local vars = {
 			groupName = grname,
 			point = pnt,
 			action = 'clone',
 			disperse = true,
 			initTasks = true,
-			radius = 50
+			radius = 30
 		}
 		
 		local newgr = mist.teleportToPoint(vars)
 		
 		if not newgr then
-			newgr = mist.cloneInZone(grname, self.name, true, nil, {initTasks = true})
+			newgr = mist.cloneInZone(grname, spname, true, nil, {initTasks = true})
 		end
 		
 		return newgr;
