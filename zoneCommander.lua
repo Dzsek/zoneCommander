@@ -110,8 +110,7 @@ do
 			point = pnt,
 			action = 'clone',
 			disperse = true,
-			initTasks = true,
-			radius = 30
+			initTasks = true
 		}
 		
 		local newgr = mist.teleportToPoint(vars)

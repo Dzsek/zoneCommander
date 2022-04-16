@@ -94,7 +94,7 @@ flavor = {
 	krasnodar='WPT 14\nAirbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
 }
 
-bc = BattleCommander:new('foothold_1.3.1.lua')
+bc = BattleCommander:new('foothold_1.3.3.lua')
 anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
 carrier = ZoneCommander:new({zone='Carrier Group', side=2, level=2, upgrades=carrier, crates={}, flavorText=flavor.carrier})
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.alpha})
@@ -383,7 +383,7 @@ function (sender, params)
 	if params.zone and params.zone.side == 1 then
 		local gr = Group.getByName('sead1')
 		if gr and gr:getSize()>0 and gr:getController():hasTask() then 
-			return 'Ground attack mission still in progress'
+			return 'SEAD mission still in progress'
 		end
 		
 		mist.respawnGroup('sead1', true)
