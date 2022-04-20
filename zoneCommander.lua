@@ -166,6 +166,14 @@ do
 		end
 	end
 	
+	function Utils.isGroupActive(group)
+		if group and group:getSize()>0 and group:getController():hasTask() then 
+			return not Utils.allGroupIsLanded(group, true)
+		else
+			return false
+		end
+	end
+	
 	function Utils.isInAir(unit)
 		--return Utils.getAGL(unit)>5
 		return unit:inAir()
@@ -2268,7 +2276,7 @@ do
 		end
 	end
 	
-	function EventCommander:chooseAndStart()
+	function EventCommander:chooseAndStart(time)
 		local canRun = {}
 		for i,v in ipairs(self.events) do
 			if v:canExecute() then
@@ -2285,13 +2293,14 @@ do
 		end
 	end
 	
-	function EventCommander:scheduleDecission()
+	function EventCommander:scheduleDecission(time)
 		local variance = math.random(1, self.decissionVariance)
-		mist.scheduleFunction(self.chooseAndStart, {self}, timer.getTime() + variance)
+		timer.scheduleFunction(self.chooseAndStart, self, time + variance)
+		return time + self.decissionFrequency + variance
 	end
 	
 	function EventCommander:init()
-		mist.scheduleFunction(self.scheduleDecission, {self}, timer.getTime() + self.decissionFrequency, self.decissionFrequency)
+		timer.scheduleFunction(self.scheduleDecission, self, timer.getTime() + self.decissionFrequency)
 	end
 end
 
