@@ -893,6 +893,47 @@ do
 		end
 	end
 	
+	function BattleCommander:jamRadarsAtZone(groupname, zonename)
+		local gr = Group.getByName(groupname)
+		local zn = self:getZoneByName(zonename)
+		if not gr then return 'EW group dead' end
+		if not zn then return 'Zone not found' end
+		if zn.side == gr:getCoalition() then return 'Can not jam friendly zone' end
+		
+		timer.scheduleFunction(function (param, time)
+			local gr = Group.getByName(param.ewgroup)
+			local zn = param.context:getZoneByName(param.target)
+			if not Utils.isGroupActive(gr) or zn.side == gr:getCoalition() then
+				for i,v in pairs(zn.built) do
+					local g = Group.getByName(v)
+					if g then
+						for i2,v2 in ipairs(g:getUnits()) do
+							if v2:hasAttribute('SAM SR') or v2:hasAttribute('SAM TR') then
+								v2:getController():setOption(0,2)
+								v2:getController():setOption(9,2)
+							end
+						end
+					end
+				end
+				return nil
+			else
+				for i,v in pairs(zn.built) do
+					local g = Group.getByName(v)
+					if g then
+						for i2,v2 in ipairs(g:getUnits()) do
+							if v2:hasAttribute('SAM SR') or v2:hasAttribute('SAM TR') then
+								v2:getController():setOption(0,4)
+								v2:getController():setOption(9,1)
+							end
+						end
+					end
+				end
+			end
+			
+			return time+10
+		end, {ewgroup = groupname, target = zonename, context = self}, timer.getTime()+10)
+	end
+	
 	function BattleCommander:startFiringAtZone(groupname, zonename, minutes)
 		timer.scheduleFunction(function(param, time)
 			local gr = Group.getByName(param.group)
