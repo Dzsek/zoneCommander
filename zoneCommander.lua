@@ -1712,6 +1712,7 @@ do
 		local zone = CustomZone:getByName(self.zone)
 		if not zone then
 			trigger.action.outText('ERROR: zone ['..self.zone..'] can not be found in the mission', 60)
+			env.info('ERROR: zone ['..self.zone..'] can not be found in the mission')
 		end
 		
 		local color = {0.7,0.7,0.7,0.3}
@@ -2066,9 +2067,8 @@ do
 			self.side = gr:getCoalition()
 			gr:destroy()
 		else
-			if not zone then
-				trigger.action.outText('ERROR: group ['..self.name..'] can not be found in the mission', 60)
-			end
+			trigger.action.outText('ERROR: group ['..self.name..'] can not be found in the mission', 60)
+			env.info('ERROR: group ['..self.name..'] can not be found in the mission')
 		end
 	end
 	
