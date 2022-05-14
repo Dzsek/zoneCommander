@@ -629,6 +629,7 @@ do
 	BattleCommander.playerContributions = {[1]={}, [2]={}}
 	BattleCommander.playerRewardsOn = false
 	BattleCommander.rewards = {}
+	BattleCommander.creditsCap = nil
 	BattleCommander.difficultyModifier = 0
 	BattleCommander.lastDiffChange = 0
 	
@@ -693,11 +694,21 @@ do
 	end
 	
 	function BattleCommander:addFunds(coalition, ammount)
-		self.accounts[coalition] = math.max(self.accounts[coalition] + ammount,0)
+		local newAmmount = math.max(self.accounts[coalition] + ammount,0)
+		if self.creditsCap then
+			newAmmount = math.min(newAmmount, self.creditsCap)
+		end
+		
+		self.accounts[coalition] = newAmmount
 	end
 	
 	function BattleCommander:printShopStatus(coalition)
-		local text = 'Credits: '..self.accounts[coalition]..'\n'
+		local text = 'Credits: '..self.accounts[coalition]
+		if self.creditsCap then
+			text = text..'/'..self.creditsCap
+		end
+		
+		text = text..'\n'
 		
 		local sorted = {}
 		for i,v in pairs(self.shops[coalition]) do table.insert(sorted,{i,v}) end
@@ -1177,7 +1188,12 @@ do
 				
 				if event.text:find('^buy') then
 					if event.text == 'buy' then
-						local toprint = 'Credits: '..self.context.accounts[event.coalition]..'\n'
+						local toprint = 'Credits: '..self.context.accounts[event.coalition]
+						if self.context.creditsCap then
+							toprint = toprint..'/'..self.context.creditsCap
+						end
+						
+						toprint = toprint..'\n'
 						local sorted = {}
 						for i,v in pairs(self.context.shops[event.coalition]) do table.insert(sorted,{i,v}) end
 						table.sort(sorted, function(a,b) return a[2].name < b[2].name end)
