@@ -582,6 +582,7 @@ GlobalSettings = {}
 do
 	GlobalSettings.blockedDespawnTime = 10*60 --used to despawn aircraft that are stuck taxiing for some reason
 	GlobalSettings.landedDespawnTime = 1*60
+	GlobalSettings.initialDelayVariance = 30 -- minutes
 	
 	GlobalSettings.respawnTimers = {}
 	GlobalSettings.respawnTimers[1] = {
@@ -1968,7 +1969,7 @@ do
 			
 			for _,v in ipairs(self.groups) do  -- reset group timers to random times so that they don't all spawn immediatly
 				if v.state == 'inhangar' or v.state == 'dead' then
-					v.lastStateTime = timer.getAbsTime() + math.random(60,30*60)
+					v.lastStateTime = timer.getAbsTime() + math.random(60,GlobalSettings.initialDelayVariance*60)
 				end
 			end
 			
@@ -2077,7 +2078,7 @@ do
 	
 	function GroupCommander:init()
 		self.state = 'inhangar'
-		self.lastStateTime = timer.getAbsTime() + math.random(1,30*60)
+		self.lastStateTime = timer.getAbsTime() + math.random(1,GlobalSettings.initialDelayVariance*60)
 		local gr = Group.getByName(self.name)
 		if gr then
 			self.side = gr:getCoalition()
