@@ -584,28 +584,41 @@ do
 	GlobalSettings.landedDespawnTime = 1*60
 	GlobalSettings.initialDelayVariance = 30 -- minutes
 	
-	GlobalSettings.respawnTimers = {}
-	GlobalSettings.respawnTimers[1] = {
-		supply = { dead=40*60, hangar=25*60},
-		patrol = { dead=40*60, hangar=2*60},
-		attack = { dead=40*60, hangar=2*60}
-	}
-	GlobalSettings.respawnTimers[2] = {
+	GlobalSettings.defaultRespawns = {}
+	GlobalSettings.defaultRespawns[1] = {
 		supply = { dead=40*60, hangar=25*60},
 		patrol = { dead=40*60, hangar=2*60},
 		attack = { dead=40*60, hangar=2*60}
 	}
 	
+	GlobalSettings.defaultRespawns[2] = {
+		supply = { dead=40*60, hangar=25*60},
+		patrol = { dead=40*60, hangar=2*60},
+		attack = { dead=40*60, hangar=2*60}
+	}
+	
+	GlobalSettings.respawnTimers = {}
+	GlobalSettings.respawnTimers[1] = {
+		supply = { dead=GlobalSettings.defaultRespawns[1].supply.dead, hangar=GlobalSettings.defaultRespawns[1].supply.hangar},
+		patrol = { dead=GlobalSettings.defaultRespawns[1].patrol.dead, hangar=GlobalSettings.defaultRespawns[1].patrol.hangar},
+		attack = { dead=GlobalSettings.defaultRespawns[1].attack.dead, hangar=GlobalSettings.defaultRespawns[1].attack.hangar}
+	}
+	GlobalSettings.respawnTimers[2] = {
+		supply = { dead=GlobalSettings.defaultRespawns[2].supply.dead, hangar=GlobalSettings.defaultRespawns[2].supply.hangar},
+		patrol = { dead=GlobalSettings.defaultRespawns[2].patrol.dead, hangar=GlobalSettings.defaultRespawns[2].patrol.hangar},
+		attack = { dead=GlobalSettings.defaultRespawns[2].attack.dead, hangar=GlobalSettings.defaultRespawns[2].attack.hangar}
+	}
+	
 	function GlobalSettings.resetDifficultyScaling()
 		GlobalSettings.respawnTimers[1] = {
-			supply = { dead=40*60, hangar=25*60},
-			patrol = { dead=40*60, hangar=2*60},
-			attack = { dead=40*60, hangar=2*60}
+			supply = { dead=GlobalSettings.defaultRespawns[1].supply.dead, hangar=GlobalSettings.defaultRespawns[1].supply.hangar},
+			patrol = { dead=GlobalSettings.defaultRespawns[1].patrol.dead, hangar=GlobalSettings.defaultRespawns[1].patrol.hangar},
+			attack = { dead=GlobalSettings.defaultRespawns[1].attack.dead, hangar=GlobalSettings.defaultRespawns[1].attack.hangar}
 		}
 		GlobalSettings.respawnTimers[2] = {
-			supply = { dead=40*60, hangar=25*60},
-			patrol = { dead=40*60, hangar=2*60},
-			attack = { dead=40*60, hangar=2*60}
+			supply = { dead=GlobalSettings.defaultRespawns[2].supply.dead, hangar=GlobalSettings.defaultRespawns[2].supply.hangar},
+			patrol = { dead=GlobalSettings.defaultRespawns[2].patrol.dead, hangar=GlobalSettings.defaultRespawns[2].patrol.hangar},
+			attack = { dead=GlobalSettings.defaultRespawns[2].attack.dead, hangar=GlobalSettings.defaultRespawns[2].attack.hangar}
 		}
 	end
 	
