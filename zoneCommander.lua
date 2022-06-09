@@ -2885,3 +2885,58 @@ do
 		return time+0.1
 	end
 end
+
+MissionCommander = {}
+do
+	--{side = int}
+	function MissionCommander:new(obj)
+		obj = obj or {}
+		obj.missions = {}
+		setmetatable(obj, self)
+		self.__index = self
+		return obj
+	end
+	
+	--{messageStart="string", messageEnd="string", title="string", description="string", isActive = function}
+	function MissionCommander:trackMission(params)
+		params.isRunning = false
+		table.insert(self.missions, params)
+	end
+	
+	function MissionCommander:printMissions()
+		local output = 'Active missions:\n'
+		
+		for _,v in ipairs(self.missions) do
+			if v:isActive() then
+				output = output..'\n----------------'
+				output = output..'\n['..v.title..']'
+				output = output..'\n'..v.description
+			end
+		end
+		
+		trigger.action.outTextForCoalition(self.side, output, 30)
+	end
+	
+	function MissionCommander:checkMissions(time)
+		for _,v in ipairs(self.missions) do
+			if v.isRunning then
+				if not v:isActive() then
+					if v.messageEnd then trigger.action.outTextForCoalition(self.side, v.messageEnd, 30) end
+					v.isRunning = false
+				end
+			else
+				if v:isActive() then
+					if v.messageStart then trigger.action.outTextForCoalition(self.side, v.messageStart, 30) end
+					v.isRunning = true
+				end
+			end
+		end
+		
+		return time + 60
+	end
+	
+	function MissionCommander:init()
+		missionCommands.addCommandForCoalition(self.side, 'Missions', nil, self.printMissions, self)
+		timer.scheduleFunction(self.checkMissions, self, timer.getTime() + 60)
+	end
+end
