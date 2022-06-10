@@ -2888,7 +2888,7 @@ end
 
 MissionCommander = {}
 do
-	--{side = int}
+	--{side = int, battleCommander = bc}
 	function MissionCommander:new(obj)
 		obj = obj or {}
 		obj.missions = {}
@@ -2897,20 +2897,31 @@ do
 		return obj
 	end
 	
-	--{messageStart="string", messageEnd="string", title="string", description="string", isActive = function}
+	--[[
+		{ 
+			messageStart="string, function", 
+			messageEnd="string, function", 
+			title="string, function", 
+			description="string, function", 
+			isActive = function,
+			startAction = function,
+			endAction = function,
+			reward=int
+		}
+	--]]
 	function MissionCommander:trackMission(params)
 		params.isRunning = false
 		table.insert(self.missions, params)
 	end
 	
 	function MissionCommander:printMissions()
-		local output = 'Active missions:\n'
-		
+		local output = 'Active missions'
+		output = output..'\n------------------------------------------------'
 		for _,v in ipairs(self.missions) do
-			if v:isActive() then
-				output = output..'\n----------------'
-				output = output..'\n['..v.title..']'
-				output = output..'\n'..v.description
+			if v.isRunning then
+				output = output..'\n['..self:decodeMessage(v.title)..']'
+				output = output..'\n'..self:decodeMessage(v.description)
+				output = output..'\n------------------------------------------------'
 			end
 		end
 		
@@ -2921,22 +2932,33 @@ do
 		for _,v in ipairs(self.missions) do
 			if v.isRunning then
 				if not v:isActive() then
-					if v.messageEnd then trigger.action.outTextForCoalition(self.side, v.messageEnd, 30) end
+					if v.messageEnd then trigger.action.outTextForCoalition(self.side, self:decodeMessage(v.messageEnd), 30) end
+					if v.reward then self.battleCommander:addFunds(self.side, v.reward) end
+					if v.endAction then v.endAction() end
 					v.isRunning = false
 				end
 			else
 				if v:isActive() then
-					if v.messageStart then trigger.action.outTextForCoalition(self.side, v.messageStart, 30) end
+					if v.messageStart then trigger.action.outTextForCoalition(self.side, self:decodeMessage(v.messageStart), 30) end
+					if v.startAction then v.startAction() end
 					v.isRunning = true
 				end
 			end
 		end
 		
-		return time + 60
+		return time + 30
 	end
 	
 	function MissionCommander:init()
 		missionCommands.addCommandForCoalition(self.side, 'Missions', nil, self.printMissions, self)
-		timer.scheduleFunction(self.checkMissions, self, timer.getTime() + 60)
+		timer.scheduleFunction(self.checkMissions, self, timer.getTime() + 30)
+	end
+	
+	function MissionCommander:decodeMessage(param)
+		if type(param) == "function" then
+			return param()
+		elseif type(param) == "string" then
+			return param
+		end
 	end
 end
