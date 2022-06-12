@@ -84,6 +84,20 @@ ev = {}
 				trigger.action.removeMark(event.idx)
 			end
 		end
+		
+		if event.text=='event' then
+  			for i,v in ipairs(evc.events) do
+				env.info(v.id)
+			end
+			trigger.action.removeMark(event.idx)
+  		end
+		
+		if event.text:find('^event\:') then
+  			local s = event.text:gsub('^event\:', '')
+  			local eventname = s
+			evc:triggerEvent(eventname)
+			trigger.action.removeMark(event.idx)
+  		end
   	end
   end
   
