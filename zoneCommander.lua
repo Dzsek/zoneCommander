@@ -584,6 +584,15 @@ do
 	GlobalSettings.landedDespawnTime = 1*60
 	GlobalSettings.initialDelayVariance = 30 -- minutes
 	
+	GlobalSettings.messages = {
+		grouplost = false,
+		captured = true,
+		upgraded = true,
+		repaired = true,
+		zonelost = true,
+		disabled = true
+	}
+	
 	GlobalSettings.defaultRespawns = {}
 	GlobalSettings.defaultRespawns[1] = {
 		supply = { dead=40*60, hangar=25*60},
@@ -1647,7 +1656,7 @@ do
 			
 			self.side = 0
 			self.active = false
-			trigger.action.outText(self.zone..' has been destroyed', 5)
+			if GlobalSettings.messages.disabled then trigger.action.outText(self.zone..' has been destroyed', 5) end
 			trigger.action.setMarkupColorFill(self.index, {0.1,0.1,0.1,0.3})
 			trigger.action.setMarkupColor(self.index, {0.1,0.1,0.1,0.3})
 			self:runTriggers('destroyed')
@@ -1871,7 +1880,7 @@ do
 			
 			if not gr or gr:getSize() == 0 then
 				self.built[i] = nil
-				trigger.action.outText(self.zone..' lost group '..v, 5)
+				if GlobalSettings.messages.grouplost then trigger.action.outText(self.zone..' lost group '..v, 5) end
 			end		
 		end
 		
@@ -1890,7 +1899,7 @@ do
 		
 			self.side = 0
 			
-			trigger.action.outText(self.zone..' is now neutral ', 5)
+			if GlobalSettings.messages.zonelost then trigger.action.outText(self.zone..' is now neutral ', 5) end
 			trigger.action.setMarkupColorFill(self.index, {0.7,0.7,0.7,0.3})
 			trigger.action.setMarkupColor(self.index, {0.7,0.7,0.7,0.3})
 			self:runTriggers('lost')
@@ -1974,7 +1983,7 @@ do
 				color = {0,0,1,0.3}
 			end
 			
-			trigger.action.outText(self.zone..' captured by '..sidename, 5)
+			if GlobalSettings.messages.captured then trigger.action.outText(self.zone..' captured by '..sidename, 5) end
 			trigger.action.setMarkupColorFill(self.index, color)
 			trigger.action.setMarkupColor(self.index, color)
 			self:runTriggers('captured')
@@ -1992,7 +2001,7 @@ do
 		end
 		
 		if not self.active then
-			trigger.action.outText(self.zone..' has been destroyed and can no longer be captured', 5)
+			if GlobalSettings.messages.disabled then trigger.action.outText(self.zone..' has been destroyed and can no longer be captured', 5) end
 		end
 	end
 	
@@ -2044,7 +2053,7 @@ do
 				local gr = Group.getByName(v)
 				if gr and gr:getSize() < gr:getInitialSize() then
 					mist.respawnGroup(v, true)
-					trigger.action.outText('Group '..v..' at '..self.zone..' was repaired', 5)
+					if GlobalSettings.messages.repaired then trigger.action.outText('Group '..v..' at '..self.zone..' was repaired', 5) end
 					self:runTriggers('repaired')
 					complete = true
 					break
@@ -2057,7 +2066,7 @@ do
 					if not self.built[i] then
 						local gr = zone:spawnGroup(v)
 						self.built[i] = gr.name
-						trigger.action.outText(self.zone..' defenses upgraded', 5)
+						if GlobalSettings.messages.upgraded then trigger.action.outText(self.zone..' defenses upgraded', 5) end
 						self:runTriggers('upgraded')
 						break
 					end
@@ -2066,7 +2075,7 @@ do
 		end
 		
 		if not self.active then
-			trigger.action.outText(self.zone..' has been destroyed and can no longer be upgraded', 5)
+			if GlobalSettings.messages.disabled then trigger.action.outText(self.zone..' has been destroyed and can no longer be upgraded', 5) end
 		end
 	end
 end
@@ -2936,12 +2945,14 @@ do
 					if v.reward then self.battleCommander:addFunds(self.side, v.reward) end
 					if v.endAction then v.endAction() end
 					v.isRunning = false
+					return time+2 --to prevent all ended missions to show at once
 				end
 			else
 				if v:isActive() then
 					if v.messageStart then trigger.action.outTextForCoalition(self.side, self:decodeMessage(v.messageStart), 30) end
 					if v.startAction then v.startAction() end
 					v.isRunning = true
+					return time+2 --to prevent all new missions starting all at once
 				end
 			end
 		end
