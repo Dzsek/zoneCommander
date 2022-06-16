@@ -644,6 +644,7 @@ end
 BattleCommander = {}
 do
 	BattleCommander.zones = {}
+	BattleCommander.indexedZones = {}
 	BattleCommander.connections = {}
 	BattleCommander.accounts = { [1]=0, [2]=0} -- 1 = red coalition, 2 = blue coalition
 	BattleCommander.shops = {[1]={}, [2]={}}
@@ -656,14 +657,20 @@ do
 	BattleCommander.difficultyModifier = 0
 	BattleCommander.lastDiffChange = 0
 	
-	function BattleCommander:new(savepath, difficulty) -- difficulty = {start = 1.4, min = -0.5, max = 0.5, escalation = 0.1, fade = 0.1, fadeTime = 30*60, coalition=1} --coalition 1:red 2:blue
+	function BattleCommander:new(savepath, updateFrequency, saveFrequency, difficulty) -- difficulty = {start = 1.4, min = -0.5, max = 0.5, escalation = 0.1, fade = 0.1, fadeTime = 30*60, coalition=1} --coalition 1:red 2:blue
 		local obj = {}
 		obj.saveFile = 'zoneCommander.lua'
 		if savepath then
 			obj.saveFile = savepath
 		end
+
+		if not updateFrequency then updateFrequency = 10 end
+		if not saveFrequency then saveFrequency = 60 end
 		
 		obj.difficulty = difficulty
+		obj.updateFrequency = updateFrequency
+		obj.saveFrequency = saveFrequency
+		
 		
 		setmetatable(obj, self)
 		self.__index = self
@@ -889,6 +896,96 @@ do
 		end
 		
 		return menu
+	end
+	
+	function BattleCommander:getRandomSurfaceUnitInZone(tgtzone, myside)
+		local zn = self:getZoneByName(tgtzone)
+		
+		local selectedUnit = nil
+		
+		local units = {}
+		for _,v in pairs(zn.built) do
+			local g = Group.getByName(v)
+			if g and g:getCoalition() ~= myside then
+				for _,unit in ipairs(g:getUnits()) do
+					table.insert(units, unit)
+				end
+			end
+		end
+		
+		for _,v in ipairs(zn.groups) do
+			local g = Group.getByName(v.name)
+			
+			if g and v.type == 'surface' and v.side ~= myside then
+				for _,unit in ipairs(g:getUnits()) do
+					table.insert(units, unit)
+				end
+			end
+		end
+		
+		
+		if #units > 0 then
+		 return units[math.random(1, #units)]
+		end
+	end
+	
+	function BattleCommander:moveToUnit(tgtunitname, groupname)
+		timer.scheduleFunction(function(params, time)
+			local group = Group.getByName(params.groupname)
+			local unit = Unit.getByName(params.tgtunitname)
+			
+			if not group or not unit then return end -- do not recalculate route, either target or hunter stopped existing
+			
+			local pos = unit:getPoint()
+			local cnt = group:getController()
+			local task = {
+				id = "Mission",
+				params = {
+					airborne = false,
+					route = {
+						points = {
+							[1] = { 
+								type=AI.Task.WaypointType.TURNING_POINT, 
+								action=AI.Task.TurnMethod.FLY_OVER_POINT,
+								speed = 100, 
+								x = pos.x + math.random(-100,100), 
+								y = pos.z + math.random(-100,100)
+							}
+						}
+					}
+				}
+			}
+			
+			cnt:setTask(task)
+			return time+50
+		end, {tgtunitname = tgtunitname, groupname = groupname}, timer.getTime() + 2)
+	end
+	
+	
+	function BattleCommander:startHuntUnitsInZone(tgtzone, groupname)
+		if not self.huntedunits then self.huntedunits = {} end
+		
+		timer.scheduleFunction(function(param, time)
+			local group = Group.getByName(param.group)
+			
+			if not group then 
+				param.context.huntedunits[param.group] = nil
+				return -- group stopped existing, shut down the hunt
+			end
+			
+			local huntedunit = param.context.huntedunits[param.group]
+			if huntedunit and Unit.getByName(huntedunit) then return time+60 end -- hunted unit still exists, check again in a minute
+		
+			local tgtunit = param.context:getRandomSurfaceUnitInZone(param.zone, group:getCoalition())
+			if tgtunit then
+				param.context.huntedunits[param.group] = tgtunit:getName()
+				param.context:moveToUnit(tgtunit:getName(), param.group)
+				return time+120 -- new unit selected, check again in 2 minutes if we should select a new one
+			else
+				return time+600 -- no unit in zone, try again in 10 minutes
+			end
+					
+		end, {context = self, zone = tgtzone, group = groupname}, timer.getTime()+2)
 	end
 	
 	function BattleCommander:engageZone(tgtzone, groupname, expendAmmount)
@@ -1135,14 +1232,11 @@ do
 		table.insert(self.zones, zone)
 		zone.index = self:getZoneIndexByName(zone.zone)+3000
 		zone.battleCommander = self
+		self.indexedZones[zone.zone] = zone
 	end
 	
 	function BattleCommander:getZoneByName(name)
-		for i,v in ipairs(self.zones) do
-			if v.zone == name then
-				return v
-			end
-		end
+		return self.indexedZones[name]
 	end
 	
 	function BattleCommander:addConnection(f, t)
@@ -1314,8 +1408,8 @@ do
 		self:refreshShopMenuForCoalition(1)
 		self:refreshShopMenuForCoalition(2)
 		
-		mist.scheduleFunction(self.update, {self}, timer.getTime() + 1, 10)
-		mist.scheduleFunction(self.saveToDisk, {self}, timer.getTime() + 60, 60)
+		mist.scheduleFunction(self.update, {self}, timer.getTime() + 1, self.updateFrequency)
+		mist.scheduleFunction(self.saveToDisk, {self}, timer.getTime() + 30, self.saveFrequency)
 		
 		local ev = {}
 		function ev:onEvent(event)
@@ -2897,10 +2991,15 @@ end
 
 MissionCommander = {}
 do
-	--{side = int, battleCommander = bc}
+	--{side = int, battleCommander = bc, checkFrequency = int}
 	function MissionCommander:new(obj)
 		obj = obj or {}
 		obj.missions = {}
+		
+		if obj.checkFrequency then
+			obj.checkFrequency = 30
+		end
+		
 		setmetatable(obj, self)
 		self.__index = self
 		return obj
@@ -2957,12 +3056,12 @@ do
 			end
 		end
 		
-		return time + 30
+		return time + self.checkFrequency
 	end
 	
 	function MissionCommander:init()
 		missionCommands.addCommandForCoalition(self.side, 'Missions', nil, self.printMissions, self)
-		timer.scheduleFunction(self.checkMissions, self, timer.getTime() + 30)
+		timer.scheduleFunction(self.checkMissions, self, timer.getTime() + 15)
 	end
 	
 	function MissionCommander:decodeMessage(param)
