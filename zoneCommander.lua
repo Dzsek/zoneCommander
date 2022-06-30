@@ -304,10 +304,32 @@ do
 		obj.tgtzone = nil
 		obj.priority = nil
 		obj.jtacMenu = nil
+		obj.laserCode = 1688
 		obj.side = Group.getByName(obj.name):getCoalition()
 		setmetatable(obj, self)
 		self.__index = self
+		obj:initCodeListener()
 		return obj
+	end
+	
+	function JTAC:initCodeListener()
+		local ev = {}
+		ev.context = self
+		function ev:onEvent(event)
+			if event.id == 26 then
+				if event.text:find('^jtac%-code:') then
+					local s = event.text:gsub('^jtac%-code:', '')
+					local code = tonumber(s)
+					if code>=1111 and code <= 1788 then
+						self.context.laserCode = code
+						trigger.action.outTextForCoalition(self.context.side, 'JTAC code set to '..code, 10)
+						trigger.action.removeMark(event.idx)
+					end
+				end
+			end
+		end
+		
+		world.addEventHandler(ev)
 	end
 	
 	function JTAC:showMenu()
@@ -400,7 +422,7 @@ do
 		if not me then return end
 		
 		local pnt = unit:getPoint()
-		self.lasers.tgt = Spot.createLaser(me:getUnit(1), { x = 0, y = 2.0, z = 0 }, pnt, 1688)
+		self.lasers.tgt = Spot.createLaser(me:getUnit(1), { x = 0, y = 2.0, z = 0 }, pnt, self.laserCode)
 		self.lasers.ir = Spot.createInfraRed(me:getUnit(1), { x = 0, y = 2.0, z = 0 }, pnt)
 		
 		self.target = unit:getName()
@@ -418,7 +440,7 @@ do
 					toprint = 'Priority targets: '..self.prioname..'\n'
 				end
 				
-				toprint = toprint..'Lasing '..tgttype..' at '..self.tgtzone.zone..'\nCode: 1688\n'
+				toprint = toprint..'Lasing '..tgttype..' at '..self.tgtzone.zone..'\nCode: '..self.laserCode..'\n'
 				local lat,lon,alt = coord.LOtoLL(pnt)
 				local mgrs = coord.LLtoMGRS(coord.LOtoLL(pnt))
 				toprint = toprint..'\nDDM:  '.. mist.tostringLL(lat,lon,3)
@@ -1184,6 +1206,7 @@ do
 		states.accounts = self.accounts
 		states.shops = self.shops
 		states.difficultyModifier = self.difficultyModifier
+		states.playerStats = self.playerStats
 		return states
 	end
 	
@@ -1293,6 +1316,9 @@ do
 					toprint = toprint..'\nbuy - display available support items'
 					toprint = toprint..'\nbuy:item - buy support item'
 					toprint = toprint..'\nstatus - display zone status for 60 seconds'
+					toprint = toprint..'\nstats - display complete leaderboard'
+					toprint = toprint..'\ntop - display top 5 players from leaderboard'
+					toprint = toprint..'\nmystats - display your personal statistics (only in MP)'
 					
 					if event.initiator then
 						trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
@@ -1358,6 +1384,34 @@ do
 						end
 					end
 				end
+				
+				if event.text=='stats' then
+					if event.initiator then
+						self.context:printStats(event.initiator:getID())
+						success = true
+					else
+						self.context:printStats()
+						success = true
+					end
+				end
+				
+				if event.text=='top' then
+					if event.initiator then
+						self.context:printStats(event.initiator:getID(), 5)
+						success = true
+					else
+						self.context:printStats(nil, 5)
+						success = true
+					end
+				end
+				
+				if event.text=='mystats' then
+					if event.initiator then
+						self.context:printMyStats(event.initiator:getID(), event.initiator:getPlayerName())
+						success = true
+					end
+				end
+				
 				
 				if success then
 					trigger.action.removeMark(event.idx)
@@ -1428,11 +1482,118 @@ do
 		world.addEventHandler(ev)
 	end
 	
+	function BattleCommander:addTempStat(playerName, statKey, value)
+		self.tempStats = self.tempStats or {}
+		self.tempStats[playerName] = self.tempStats[playerName] or {}
+		self.tempStats[playerName][statKey] = self.tempStats[playerName][statKey] or 0
+		self.tempStats[playerName][statKey] = self.tempStats[playerName][statKey] + value
+	end
+	
+	function BattleCommander:addStat(playerName, statKey, value)
+		self.playerStats = self.playerStats or {}
+		self.playerStats[playerName] = self.playerStats[playerName] or {}
+		self.playerStats[playerName][statKey] = self.playerStats[playerName][statKey] or 0
+		self.playerStats[playerName][statKey] = self.playerStats[playerName][statKey] + value
+	end
+	
+	function BattleCommander:resetTempStats(playerName)
+		self.tempStats = self.tempStats or {}
+		self.tempStats[playerName] = {}
+	end
+	
+	function BattleCommander:printTempStats(side, player)
+		self.tempStats = self.tempStats or {}
+		self.tempStats[player] = self.tempStats[player] or {}
+		local sorted = {}
+		for i,v in pairs(self.tempStats[player]) do table.insert(sorted,{i,v}) end
+		table.sort(sorted, function(a,b) return a[1] < b[1] end)
+		
+		local message = '['..player..']'
+		for i,v in ipairs(sorted) do
+			message = message..'\n+'..v[2]..' '..v[1]
+		end
+		
+		trigger.action.outTextForCoalition(side, message , 10)
+	end
+	
+	function BattleCommander:printMyStats(unitid,player)
+		self.playerStats = self.playerStats or {}
+		self.playerStats[player] = self.playerStats[player] or {}
+		
+		local rank = nil
+		local sorted2 = {}
+		for i,v in pairs(self.playerStats) do table.insert(sorted2,{i,v}) end
+		table.sort(sorted2, function(a,b) return (a[2]['Points'] or 0) > (b[2]['Points'] or 0)end)
+		for i,v in ipairs(sorted2) do
+			if v[1] == player then 
+				rank = i
+				break
+			end
+		end
+		
+		local sorted = {}
+		for i,v in pairs(self.playerStats[player]) do table.insert(sorted,{i,v}) end
+		table.sort(sorted, function(a,b) return a[1] < b[1] end)
+		
+		local message = rank..' ['..player..']'
+		for i,v in ipairs(sorted) do
+			message = message..'\n'..v[2]..': '..v[1]
+		end
+		
+		trigger.action.outTextForUnit(unitid, message , 10)
+	end
+	
+	function BattleCommander:printStats(unitid, top)
+		self.playerStats = self.playerStats or {}
+		local sorted = {}
+		for i,v in pairs(self.playerStats) do table.insert(sorted,{i,v}) end
+		table.sort(sorted, function(a,b) return (a[2]['Points'] or 0) > (b[2]['Points'] or 0)end)
+		
+		local message = '[Leaderboards]'
+		if top then message = '[Top '..top..' players]' end
+		local counter = 0
+		for i,v in ipairs(sorted) do
+			counter = counter + 1
+			if top and counter>top then break end
+			
+			message = message..'\n\n'..i..'. ['..v[1]..']\n'
+  			local sorted2 = {}
+            for i,v in pairs(v[2]) do table.insert(sorted2,{i,v}) end
+            table.sort(sorted2, function(a,b) 
+  				if a[1] == 'Points' then return false end
+  				if b[1] == 'Points' then return true end
+  				return a[1] < b[1] 
+			end)
+  			for i2,v2 in ipairs(sorted2) do
+  				message = message..' '..v2[1]..':'..v2[2]
+  			end
+		end
+		
+		if unitid then
+			trigger.action.outTextForUnit(unitid, message , 30)
+		else
+			trigger.action.outText(message , 30)
+		end
+	end
+	
+	function BattleCommander:commitTempStats(playerName)
+		self.tempStats = self.tempStats or {}
+		local stats = self.tempStats[playerName]
+		if stats then
+			for key,value in pairs(stats) do
+				self:addStat(playerName, key, value)
+			end
+			
+			self:resetTempStats(playerName)
+		end
+	end
+	
 	-- defaultReward - base pay, rewards = {airplane=0, helicopter=0, ground=0, ship=0, structure=0, infantry=0, sam=0, crate=0, rescue=0} - overrides
 	function BattleCommander:startRewardPlayerContribution(defaultReward, rewards)
 		self.playerRewardsOn = true
 		self.rewards = rewards
 		self.defaultReward = defaultReward
+		
 		local ev = {}
 		ev.context = self
 		ev.rewards = rewards
@@ -1448,23 +1609,29 @@ do
 						if self.context.playerContributions[side][pname] ~= nil and self.context.playerContributions[side][pname]>0 then
 							local tenp = math.floor(self.context.playerContributions[side][pname]*0.25)
 							self.context:addFunds(side, tenp)
-							trigger.action.outTextForCoalition(side, '['..pname..'] ejected. +'..tenp..' credits (25% of earnings)', 5)
+							trigger.action.outTextForCoalition(side, '['..pname..'] ejected. +'..tenp..' credits (25% of earnings). Kill statistics lost.', 5)
+							self.context:addStat(pname, 'Points', tenp)
 							self.context.playerContributions[side][pname] = 0
 						end
 					end
 					
 					if (event.id==15) then  -- spawned
 						self.context.playerContributions[side][pname] = 0
+						self.context:resetTempStats(pname)
 					end
 					
 					if (event.id==28) then --killed unit
 						if event.target.getCoalition and side ~= event.target:getCoalition() then
 							if self.context.playerContributions[side][pname] ~= nil then
-								local earning,message = self.context:objectToRewardPoints2(event.target)
+								local earning,message,stat = self.context:objectToRewardPoints2(event.target)
 								
 								if earning and message then
 									trigger.action.outTextForGroup(groupid,'['..pname..'] '..message, 5)
 									self.context.playerContributions[side][pname] = self.context.playerContributions[side][pname] + earning
+								end
+								
+								if stat then
+									self.context:addTempStat(pname,stat,1)
 								end
 							end
 						end
@@ -1482,6 +1649,9 @@ do
 											if un:getLife() > 0 then
 												context:addFunds(zone.side, context.playerContributions[zone.side][player])
 												trigger.action.outTextForCoalition(zone.side, '['..player..'] redeemed '..context.playerContributions[zone.side][player]..' credits', 5)
+												context:printTempStats(zone.side,player)
+												context:addTempStat(player, 'Points', context.playerContributions[zone.side][player])
+												context:commitTempStats(player)
 												context.playerContributions[zone.side][player] = 0
 												
 												context:saveToDisk() -- save persistance data to enable ending mission after cashing money
@@ -1561,33 +1731,41 @@ do
 	function BattleCommander:objectToRewardPoints2(object) -- returns points,message
 		local earning = self.defaultReward
 		local message = 'Unit kill +'..earning..' credits'
+		local statname = 'Gnd'
 		
 		if object:hasAttribute('Planes') and self.rewards.airplane then
 			earning = self.rewards.airplane
 			message = 'Aircraft kill +'..earning..' credits'
+			statname = 'Air'
 		elseif object:hasAttribute('Helicopters') and self.rewards.helicopter then
 			earning = self.rewards.helicopter
 			message = 'Helicopter kill +'..earning..' credits'
+			statname = 'Helo'
 		elseif object:hasAttribute('Infantry') and self.rewards.infantry then
 			earning = self.rewards.infantry
 			message = 'Infantry kill +'..earning..' credits'
+			statname = 'Inf'
 		elseif (object:hasAttribute('SAM SR') or object:hasAttribute('SAM TR') or object:hasAttribute('IR Guided SAM')) and self.rewards.sam then
 			earning = self.rewards.sam
 			message = 'SAM kill +'..earning..' credits'
+			statname = 'SAM'
 		elseif object:hasAttribute('Ships') and self.rewards.ship then
 			earning = self.rewards.ship
 			message = 'Ship kill +'..earning..' credits'
+			statname = 'Ship'
 		elseif object:hasAttribute('Ground Units') then
 			earning = self.rewards.ground
 			message = 'Ground kill +'..earning..' credits'
+			statname = 'Gnd'
 		elseif object:hasAttribute('Buildings') and self.rewards.structure then
 			earning = self.rewards.structure
 			message = 'Structure kill +'..earning..' credits'
+			statname = 'Struct'
 		else
 			return -- object does not have any of the attributes
 		end
 		
-		return earning,message
+		return earning,message,statname
 	end
 	
 	function BattleCommander:update()
@@ -1663,6 +1841,10 @@ do
 				if self.difficulty then
 					GlobalSettings.setDifficultyScaling(self.difficulty.start + self.difficultyModifier, self.difficulty.coalition)
 				end
+			end
+			
+			if zonePersistance.playerStats then
+				self.playerStats = zonePersistance.playerStats
 			end
 		end
 	end
