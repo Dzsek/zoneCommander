@@ -96,10 +96,18 @@ do
 		return spawnZones[choice]
 	end
 	
-	function CustomZone:spawnGroup(grname)
+	function CustomZone:spawnGroup(grname, forceFirst)
 		local spname = self.name
+		local spawnzone = nil
 		
-		local spawnzone = self:getRandomSpawnZone()
+		if forceFirst and trigger.misc.getZone(spname..'-0')then
+			spawnzone = spname..'-0'
+		end
+		
+		if not spawnzone then
+			spawnzone = self:getRandomSpawnZone()
+		end
+		
 		if spawnzone then
 			spname = spawnzone
 		end
@@ -2058,7 +2066,7 @@ do
 			for i,v in pairs(self.remainingUnits) do
 				if not self.built[i] then
 					local upg = upgrades[i]
-					local gr = zone:spawnGroup(upg)
+					local gr = zone:spawnGroup(upg, i==1)
 					self.built[i] = gr.name
 				end
 			end
@@ -2068,7 +2076,7 @@ do
 			if Utils.getTableSize(self.built) < self.level then
 				for i,v in pairs(upgrades) do
 					if not self.built[i] and i<=self.level then
-						local gr = zone:spawnGroup(v)
+						local gr = zone:spawnGroup(v, i==1)
 						self.built[i] = gr.name
 					end
 				end
@@ -2340,7 +2348,7 @@ do
 				local zone = CustomZone:getByName(self.zone)
 				for i,v in pairs(upgrades) do
 					if not self.built[i] then
-						local gr = zone:spawnGroup(v)
+						local gr = zone:spawnGroup(v, i==1)
 						self.built[i] = gr.name
 						if GlobalSettings.messages.upgraded then trigger.action.outText(self.zone..' defenses upgraded', 5) end
 						self:runTriggers('upgraded')
