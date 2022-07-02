@@ -81,7 +81,7 @@ do
 	
 	function CustomZone:getRandomSpawnZone()
 		local spawnZones = {}
-		for i=1,10,1 do
+		for i=1,100,1 do
 			local zname = self.name..'-'..i
 			if trigger.misc.getZone(zname) then
 				table.insert(spawnZones, zname)
@@ -1327,6 +1327,7 @@ do
 					toprint = toprint..'\nstats - display complete leaderboard'
 					toprint = toprint..'\ntop - display top 5 players from leaderboard'
 					toprint = toprint..'\nmystats - display your personal statistics (only in MP)'
+					toprint = toprint..'\njtac-code:1234 - change laser code of JTAC (Valid codes: 1111-1788)'
 					
 					if event.initiator then
 						trigger.action.outTextForGroup(event.initiator:getGroup():getID(), toprint, 20)
@@ -1545,7 +1546,7 @@ do
 		
 		local message = rank..' ['..player..']'
 		for i,v in ipairs(sorted) do
-			message = message..'\n'..v[2]..': '..v[1]
+			message = message..'\n'..v[1]..': '..v[2]
 		end
 		
 		trigger.action.outTextForUnit(unitid, message , 10)
@@ -1739,7 +1740,7 @@ do
 	function BattleCommander:objectToRewardPoints2(object) -- returns points,message
 		local earning = self.defaultReward
 		local message = 'Unit kill +'..earning..' credits'
-		local statname = 'Gnd'
+		local statname = 'Veh'
 		
 		if object:hasAttribute('Planes') and self.rewards.airplane then
 			earning = self.rewards.airplane
@@ -1763,8 +1764,8 @@ do
 			statname = 'Ship'
 		elseif object:hasAttribute('Ground Units') then
 			earning = self.rewards.ground
-			message = 'Ground kill +'..earning..' credits'
-			statname = 'Gnd'
+			message = 'Vehicle kill +'..earning..' credits'
+			statname = 'Veh'
 		elseif object:hasAttribute('Buildings') and self.rewards.structure then
 			earning = self.rewards.structure
 			message = 'Structure kill +'..earning..' credits'
