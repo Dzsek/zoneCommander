@@ -625,39 +625,54 @@ do
 	
 	GlobalSettings.defaultRespawns = {}
 	GlobalSettings.defaultRespawns[1] = {
-		supply = { dead=40*60, hangar=25*60},
-		patrol = { dead=40*60, hangar=2*60},
-		attack = { dead=40*60, hangar=2*60}
+		supply = { dead=40*60, hangar=25*60, preparing=5*60},
+		patrol = { dead=40*60, hangar=2*60, preparing=5*60},
+		attack = { dead=40*60, hangar=2*60, preparing=5*60}
 	}
 	
 	GlobalSettings.defaultRespawns[2] = {
-		supply = { dead=40*60, hangar=25*60},
-		patrol = { dead=40*60, hangar=2*60},
-		attack = { dead=40*60, hangar=2*60}
+		supply = { dead=40*60, hangar=25*60, preparing=5*60},
+		patrol = { dead=40*60, hangar=2*60, preparing=5*60},
+		attack = { dead=40*60, hangar=2*60, preparing=5*60}
 	}
 	
 	GlobalSettings.respawnTimers = {}
-	GlobalSettings.respawnTimers[1] = {
-		supply = { dead=GlobalSettings.defaultRespawns[1].supply.dead, hangar=GlobalSettings.defaultRespawns[1].supply.hangar},
-		patrol = { dead=GlobalSettings.defaultRespawns[1].patrol.dead, hangar=GlobalSettings.defaultRespawns[1].patrol.hangar},
-		attack = { dead=GlobalSettings.defaultRespawns[1].attack.dead, hangar=GlobalSettings.defaultRespawns[1].attack.hangar}
-	}
-	GlobalSettings.respawnTimers[2] = {
-		supply = { dead=GlobalSettings.defaultRespawns[2].supply.dead, hangar=GlobalSettings.defaultRespawns[2].supply.hangar},
-		patrol = { dead=GlobalSettings.defaultRespawns[2].patrol.dead, hangar=GlobalSettings.defaultRespawns[2].patrol.hangar},
-		attack = { dead=GlobalSettings.defaultRespawns[2].attack.dead, hangar=GlobalSettings.defaultRespawns[2].attack.hangar}
-	}
 	
 	function GlobalSettings.resetDifficultyScaling()
 		GlobalSettings.respawnTimers[1] = {
-			supply = { dead=GlobalSettings.defaultRespawns[1].supply.dead, hangar=GlobalSettings.defaultRespawns[1].supply.hangar},
-			patrol = { dead=GlobalSettings.defaultRespawns[1].patrol.dead, hangar=GlobalSettings.defaultRespawns[1].patrol.hangar},
-			attack = { dead=GlobalSettings.defaultRespawns[1].attack.dead, hangar=GlobalSettings.defaultRespawns[1].attack.hangar}
+			supply = { 
+				dead = GlobalSettings.defaultRespawns[1].supply.dead, 
+				hangar = GlobalSettings.defaultRespawns[1].supply.hangar, 
+				preparing = GlobalSettings.defaultRespawns[1].supply.preparing
+			},
+			patrol = { 
+				dead = GlobalSettings.defaultRespawns[1].patrol.dead, 
+				hangar = GlobalSettings.defaultRespawns[1].patrol.hangar, 
+				preparing = GlobalSettings.defaultRespawns[1].patrol.preparing
+			},
+			attack = { 
+				dead = GlobalSettings.defaultRespawns[1].attack.dead, 
+				hangar = GlobalSettings.defaultRespawns[1].attack.hangar, 
+				preparing = GlobalSettings.defaultRespawns[1].attack.preparing
+			}
 		}
+		
 		GlobalSettings.respawnTimers[2] = {
-			supply = { dead=GlobalSettings.defaultRespawns[2].supply.dead, hangar=GlobalSettings.defaultRespawns[2].supply.hangar},
-			patrol = { dead=GlobalSettings.defaultRespawns[2].patrol.dead, hangar=GlobalSettings.defaultRespawns[2].patrol.hangar},
-			attack = { dead=GlobalSettings.defaultRespawns[2].attack.dead, hangar=GlobalSettings.defaultRespawns[2].attack.hangar}
+			supply = { 
+				dead = GlobalSettings.defaultRespawns[2].supply.dead, 
+				hangar = GlobalSettings.defaultRespawns[2].supply.hangar, 
+				preparing = GlobalSettings.defaultRespawns[2].supply.preparing
+			},
+			patrol = { 
+				dead = GlobalSettings.defaultRespawns[2].patrol.dead, 
+				hangar = GlobalSettings.defaultRespawns[2].patrol.hangar, 
+				preparing = GlobalSettings.defaultRespawns[2].patrol.preparing
+			},
+			attack = { 
+				dead = GlobalSettings.defaultRespawns[2].attack.dead, 
+				hangar = GlobalSettings.defaultRespawns[2].attack.hangar, 
+				preparing = GlobalSettings.defaultRespawns[2].attack.preparing
+			}
 		}
 	end
 	
@@ -669,6 +684,8 @@ do
 			end
 		end
 	end
+	
+	GlobalSettings.resetDifficultyScaling()
 end
 
 BattleCommander = {}
@@ -2425,7 +2442,7 @@ do
 		return false
 	end
 	
-	function GroupCommander:processAir()-- states: [inhangar, takeoff, inair, landed, dead]
+	function GroupCommander:processAir()-- states: [inhangar, preparing, takeoff, inair, landed, dead]
 		local gr = Group.getByName(self.name)
 		local coalition = self.side
 		if not gr or gr:getSize()==0 then
@@ -2433,7 +2450,7 @@ do
 				gr:destroy()
 			end
 		
-			if self.state ~= 'inhangar' and self.state ~= 'dead' then
+			if self.state ~= 'inhangar' and self.state ~= 'preparing' and self.state ~= 'dead' then
 				self.state = 'dead'
 				self.lastStateTime = timer.getAbsTime()
 			end
@@ -2441,6 +2458,13 @@ do
 		
 		if self.state == 'inhangar' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].hangar then
+				if self:shouldSpawn() then
+					self.state = 'preparing'
+					self.lastStateTime = timer.getAbsTime()
+				end
+			end
+		elseif self.state == 'preparing' then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].preparing then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'takeoff'
@@ -2488,15 +2512,14 @@ do
 		elseif self.state =='dead' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].dead then
 				if self:shouldSpawn() then
-					mist.respawnGroup(self.name,true)
-					self.state = 'takeoff'
+					self.state = 'preparing'
 					self.lastStateTime = timer.getAbsTime()
 				end
 			end
 		end
 	end
 	
-	function GroupCommander:processSurface()-- states: [inhangar, dead, enroute, atdestination]
+	function GroupCommander:processSurface()-- states: [inhangar, preparing, dead, enroute, atdestination]
 		local gr = Group.getByName(self.name)
 		local coalition = self.side
 		if not gr or gr:getSize()==0 then
@@ -2504,7 +2527,7 @@ do
 				gr:destroy()
 			end
 		
-			if self.state ~= 'inhangar' and self.state ~= 'dead' then
+			if self.state ~= 'inhangar' and self.state ~= 'preparing' and self.state ~= 'dead' then
 				self.state = 'dead'
 				self.lastStateTime = timer.getAbsTime()
 			end
@@ -2512,6 +2535,13 @@ do
 	
 		if self.state == 'inhangar' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].hangar then
+				if self:shouldSpawn() then
+					self.state = 'preparing'
+					self.lastStateTime = timer.getAbsTime()
+				end
+			end
+		elseif self.state == 'preparing' then
+			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].preparing then
 				if self:shouldSpawn() then
 					mist.respawnGroup(self.name,true)
 					self.state = 'enroute'
@@ -2556,8 +2586,7 @@ do
 		elseif self.state =='dead' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].dead then
 				if self:shouldSpawn() then
-					mist.respawnGroup(self.name,true)
-					self.state = 'enroute'
+					self.state = 'preparing'
 					self.lastStateTime = timer.getAbsTime()
 				end
 			end
