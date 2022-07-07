@@ -625,15 +625,15 @@ do
 	
 	GlobalSettings.defaultRespawns = {}
 	GlobalSettings.defaultRespawns[1] = {
-		supply = { dead=40*60, hangar=25*60, preparing=5*60},
-		patrol = { dead=40*60, hangar=2*60, preparing=5*60},
-		attack = { dead=40*60, hangar=2*60, preparing=5*60}
+		supply = { dead=35*60, hangar=20*60, preparing=5*60},
+		patrol = { dead=38*60, hangar=2*60, preparing=2*60},
+		attack = { dead=38*60, hangar=2*60, preparing=2*60}
 	}
 	
 	GlobalSettings.defaultRespawns[2] = {
-		supply = { dead=40*60, hangar=25*60, preparing=5*60},
-		patrol = { dead=40*60, hangar=2*60, preparing=5*60},
-		attack = { dead=40*60, hangar=2*60, preparing=5*60}
+		supply = { dead=35*60, hangar=20*60, preparing=5*60},
+		patrol = { dead=38*60, hangar=2*60, preparing=2*60},
+		attack = { dead=38*60, hangar=2*60, preparing=2*60}
 	}
 	
 	GlobalSettings.respawnTimers = {}

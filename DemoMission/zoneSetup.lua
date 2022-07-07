@@ -50,7 +50,7 @@ specialKrasnodar = {
 }
 
 convoy = {
-	blue = {"bInfantry", "bInfantry", "bArmor"},
+	blue = {"bInfantry"},
 	red = {"rInfantry", "rInfantry", "rArmor"}
 }
 
@@ -94,7 +94,14 @@ flavor = {
 	krasnodar='WPT 14\nAirbase next to the city of Krasnodar.\nThe home base of our enemy. Capture it to deprive them of their most valuable asset.'
 }
 
-bc = BattleCommander:new('foothold_1.3.3.lua')
+local filepath = 'foothold_1.4.lua'
+if lfs then 
+	local dir = lfs.writedir()..'Missions/Saves/'
+	lfs.mkdir(dir)
+	filepath = dir..filepath
+	env.info('Foothold - Save file path: '..filepath)
+end
+bc = BattleCommander:new(filepath, 10, 60)
 anapa = ZoneCommander:new({zone='Anapa', side=2, level=5, upgrades=airfield, crates=cargoAccepts.anapa, flavorText=flavor.anapa})
 carrier = ZoneCommander:new({zone='Carrier Group', side=2, level=2, upgrades=carrier, crates={}, flavorText=flavor.carrier})
 alpha = ZoneCommander:new({zone='Alpha', side=0, level=0, upgrades=regularzone, crates=cargoAccepts.general, flavorText=flavor.alpha})
@@ -165,7 +172,8 @@ dispatch = {
 		GroupCommander:new({name='bravo9', mission='supply', targetzone='Alpha'}),
 		GroupCommander:new({name='bravo11', mission='supply', targetzone='Oil Fields'}),
 		GroupCommander:new({name='bravo12', mission='supply', targetzone='Oil Fields'}),
-		GroupCommander:new({name='bravo13', mission='attack', targetzone='Oil Fields'})
+		GroupCommander:new({name='bravo13', mission='attack', targetzone='Oil Fields'}),
+		GroupCommander:new({name='bravo14', mission='supply', targetzone='Convoy', type='surface'})
 	},
 	anapa = {
 		GroupCommander:new({name='anapa1', mission='supply', targetzone='Alpha'}),
@@ -640,6 +648,184 @@ end
 Group.getByName('awacs1'):destroy()
 bc:registerShopItem('awacs', 'AWACS', 100, spawnAwacs, spawnAwacs)
 
+Group.getByName('ewAircraft'):destroy()
+local jamMenu = nil
+bc:registerShopItem('jam', 'Jam radars at zone', 500, function(sender)
+	local gr = Group.getByName('ewAircraft')
+	if Utils.isGroupActive(gr) then 
+		return 'Jamming mission still in progress'
+	end
+	
+	mist.respawnGroup('ewAircraft', true)
+	
+	if jamMenu then
+		return 'Choose target zone from F10 menu'
+	end
+	
+	local startJam = function(target)
+		if jamMenu then
+			bc:jamRadarsAtZone('ewAircraft', target)
+			jamMenu = nil
+			trigger.action.outTextForCoalition(2, 'Growler jamming radars at '..target, 15)
+		end
+	end
+	
+	jamMenu = bc:showTargetZoneMenu(2, 'Jamming target', startJam, 1)
+	trigger.action.outTextForCoalition(2, 'Choose target zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 1 then
+		local gr = Group.getByName('ewAircraft')
+		if Utils.isGroupActive(gr) then 
+			return 'Jamming mission still in progress'
+		end
+		
+		mist.respawnGroup('ewAircraft', true)
+		
+		mist.scheduleFunction(function(target)
+			local ew = Group.getByName('ewAircraft')
+			if ew then
+				local err = bc:jamRadarsAtZone('ewAircraft', target)
+				if err then
+					return err
+				end
+				
+				trigger.action.outTextForCoalition(2, 'Growler jamming radars at '..target, 15)
+			end
+		end,{params.zone.zone},timer.getTime()+2)
+		
+	else
+		return 'Can only target enemy zone'
+	end
+end)
+
+tanksMenu = nil
+bc:registerShopItem('armor', 'Deploy armor (for combined arms)', 100, function(sender)
+	
+	if tanksMenu then
+		return 'Choose deploy zone from F10 menu'
+	end
+	
+	local deployTanks = function(target)
+		if tanksMenu then
+		
+			local zn = CustomZone:getByName(target)
+			zn:spawnGroup('ca-tanks')
+			
+			tanksMenu = nil
+			trigger.action.outTextForCoalition(2, 'Friendly armor deployed at '..target, 15)
+		end
+	end
+	
+	tanksMenu = bc:showTargetZoneMenu(2, 'Deploy armor (Choose friendly zone)', deployTanks, 2)
+	trigger.action.outTextForCoalition(2, 'Choose deploy zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 2 then
+		
+		local zn = CustomZone:getByName(params.zone.zone)
+		zn:spawnGroup('ca-tanks')
+		trigger.action.outTextForCoalition(2, 'Friendly armor deployed at '..params.zone.zone, 15)
+	else
+		return 'Can only deploy at friendly zone'
+	end
+end)
+
+artyMenu = nil
+bc:registerShopItem('artillery', 'Deploy artillery (for combined arms)', 100, function(sender)
+	
+	if artyMenu then
+		return 'Choose deploy zone from F10 menu'
+	end
+	
+	local deployArty = function(target)
+		if artyMenu then
+		
+			local zn = CustomZone:getByName(target)
+			zn:spawnGroup('ca-arty')
+			
+			artyMenu = nil
+			trigger.action.outTextForCoalition(2, 'Friendly artillery deployed at '..target, 15)
+		end
+	end
+	
+	artyMenu = bc:showTargetZoneMenu(2, 'Deploy artillery (Choose friendly zone)', deployArty, 2)
+	trigger.action.outTextForCoalition(2, 'Choose deploy zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 2 then
+		
+		local zn = CustomZone:getByName(params.zone.zone)
+		zn:spawnGroup('ca-arty')
+		trigger.action.outTextForCoalition(2, 'Friendly artillery deployed at '..params.zone.zone, 15)
+	else
+		return 'Can only deploy at friendly zone'
+	end
+end)
+
+reconMenu = nil
+bc:registerShopItem('recon', 'Deploy recon group (for combined arms)', 50, function(sender)
+	
+	if reconMenu then
+		return 'Choose deploy zone from F10 menu'
+	end
+	
+	local deployRecon = function(target)
+		if reconMenu then
+		
+			local zn = CustomZone:getByName(target)
+			zn:spawnGroup('ca-recon')
+			
+			reconMenu = nil
+			trigger.action.outTextForCoalition(2, 'Friendly recon group deployed at '..target, 15)
+		end
+	end
+	
+	reconMenu = bc:showTargetZoneMenu(2, 'Deploy recon group (Choose friendly zone)', deployRecon, 2)
+	trigger.action.outTextForCoalition(2, 'Choose deploy zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 2 then
+		
+		local zn = CustomZone:getByName(params.zone.zone)
+		zn:spawnGroup('ca-recon')
+		trigger.action.outTextForCoalition(2, 'Friendly recon group deployed at '..params.zone.zone, 15)
+	else
+		return 'Can only deploy at friendly zone'
+	end
+end)
+
+airdefMenu = nil
+bc:registerShopItem('airdef', 'Deploy air defence (for combined arms)', 150, function(sender)
+	
+	if airdefMenu then
+		return 'Choose deploy zone from F10 menu'
+	end
+	
+	local deployAirDef = function(target)
+		if airdefMenu then
+		
+			local zn = CustomZone:getByName(target)
+			zn:spawnGroup('ca-airdef')
+			
+			airdefMenu = nil
+			trigger.action.outTextForCoalition(2, 'Friendly air defence deployed at '..target, 15)
+		end
+	end
+	
+	airdefMenu = bc:showTargetZoneMenu(2, 'Deploy air defence (Choose friendly zone)', deployAirDef, 2)
+	trigger.action.outTextForCoalition(2, 'Choose deploy zone from F10 menu', 15)
+end,
+function(sender, params)
+	if params.zone and params.zone.side == 2 then
+		
+		local zn = CustomZone:getByName(params.zone.zone)
+		zn:spawnGroup('ca-airdef')
+		trigger.action.outTextForCoalition(2, 'Friendly air defence deployed at '..params.zone.zone, 15)
+	else
+		return 'Can only deploy at friendly zone'
+	end
+end)
 
 bc:addShopItem(2, 'sead', -1)
 bc:addShopItem(2, 'sweep', -1)
@@ -648,7 +834,13 @@ bc:addShopItem(2, 'cruisemsl', 12)
 bc:addShopItem(2, 'supplies', -1)
 bc:addShopItem(2, 'jtac', -1)
 bc:addShopItem(2, 'smoke', -1)
+bc:addShopItem(2, 'jam', -1)
 bc:addShopItem(2, 'awacs', -1)
+
+bc:addShopItem(2, 'armor', -1)
+bc:addShopItem(2, 'artillery', -1)
+bc:addShopItem(2, 'recon', -1)
+bc:addShopItem(2, 'airdef', -1)
 
 --red support
 Group.getByName('redcas1'):destroy()
@@ -706,8 +898,6 @@ bc:registerShopItem('redmlrs1', 'spawn Red mlrs', 1000, function(sender)
 			end
 			
 			trigger.action.outTextForCoalition(2,'The enemy has resupplied its artillery near Foxtrot',15)
-		else
-			trigger.action.outTextForCoalition(2,'The enemy has deployed artillery near Foxtrot',15)
 		end
 		
 		mist.respawnGroup('redmlrs1')
@@ -786,8 +976,6 @@ bc:registerShopItem('intercept1', 'Red intercept', 1000, function(sender)
 		
 		cargoDieEvent = mist.addEventHandler(cargoPlaneDied)
 	end
-	
-	trigger.action.outTextForCoalition(2,'Enemy cargo transport has entered the airspace from the south.',15)
 end)
 
 Group.getByName('escort1'):destroy()
@@ -820,9 +1008,6 @@ bc:registerShopItem('escort1', 'Red antiescort', 1000, function(sender)
 	local timers = {math.random(3*60,15*60), math.random(8*60,15*60)}
 	mist.scheduleFunction(spawnIntercept, {'antiescort1'}, timer.getTime()+timers[1])
 	mist.scheduleFunction(spawnIntercept, {'antiescort2'}, timer.getTime()+timers[2])
-	
-	
-	trigger.action.outTextForCoalition(2,'Friendly cargo transport has entered the airspace from the south.',15)
 end)
 
 krymskForce = {
@@ -862,8 +1047,6 @@ bc:registerShopItem('krymskForce', 'Krymsk Assault', 1000, function(sender)
 			mist.respawnGroup('krymsk-aforce-2', true)
 			mist.respawnGroup('krymsk-aforce-3', true)
 		end
-	
-		trigger.action.outTextForCoalition(2,'Enemy is starting an assault on Krymsk',15)
 	else
 		return 'zone no match'
 	end
@@ -890,6 +1073,226 @@ bc:init()
 bc:startRewardPlayerContribution(15,{infantry = 5, ground = 15, sam = 30, airplane = 30, ship = 200, helicopter=40, crate=100, rescue = 50})
 
 HercCargoDropSupply.init(bc)
+
+mc = MissionCommander:new({side = 2, battleCommander = bc, checkFrequency = 60})
+
+mc:trackMission({
+	title = "Escort",
+	description = "Friendly cargo transport has entered the airspace from the south. Protect it from the enemy.",
+	messageStart = "New mission: Escort",
+	messageEnd = "Mission ended: Escort",
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		if Group.getByName('escort1') then return true end
+		
+		return false
+	end
+})
+
+mc:trackMission({
+	title = "Intercept",
+	description = "Enemy cargo transport has entered the airspace from the south. Intercept and destroy it before it escapes.",
+	messageStart = "New mission: Intercept",
+	messageEnd = "Mission ended: Intercept",
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		if Group.getByName('intercept1') then return true end
+		
+		return false
+	end
+})
+
+mc:trackMission({
+	title = "Destroy artillery",
+	description = "The enemy has deployed artillery near Foxtrot. Destroy it before it has a chance to fire",
+	messageStart = "New mission: Destroy artillery",
+	messageEnd = "Mission ended: Destroy artillery",
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		if Group.getByName('redmlrs1') then return true end
+		
+		return false
+	end
+})
+
+mc:trackMission({
+	title = "Defend Krymsk",
+	description = "The enemy has launched an all out attack on Krymsk.\nDefend the airfield at all cost.",
+	messageStart = "New mission: Defend Krymsk",
+	messageEnd = "Mission ended: Defend Krymsk",
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		for _,v in ipairs(krymskForce) do
+			local gr = Group.getByName(v)
+			if gr and gr:getSize()>0 and gr:getController():hasTask() then 
+				return true
+			end
+		end
+		
+		return false
+	end
+})
+
+
+
+resupplyTarget = nil
+mc:trackMission({
+	title = function() return "Resupply "..resupplyTarget end,
+	description = function() return "Deliver supplies to "..resupplyTarget end,
+	messageStart = function() return "New mission: Resupply "..resupplyTarget end,
+	messageEnd = function() return "Mission ended: Resupply "..resupplyTarget end,
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		resupplyTarget = nil
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		if not resupplyTarget then return false end
+		
+		local targetzn = bc:getZoneByName(resupplyTarget)
+		return targetzn:canRecieveSupply()
+	end
+})
+
+attackTarget = nil
+mc:trackMission({
+	title = function() return "Attack "..attackTarget end,
+	description = function() return "Destroy enemy forces at "..attackTarget end,
+	messageStart = function() return "New mission: Attack "..attackTarget end,
+	messageEnd = function() return "Mission ended: Attack "..attackTarget end,
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		attackTarget = nil 
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		if not attackTarget then return false end
+		
+		local targetzn = bc:getZoneByName(attackTarget)
+		return targetzn.side == 1
+	end
+})
+
+captureTarget = nil
+mc:trackMission({
+	title = function() return "Capture "..captureTarget end,
+	description = function() return captureTarget.." is neutral. Capture it by delivering supplies" end,
+	messageStart = function() return "New mission: Capture "..captureTarget end,
+	messageEnd = function() return "Mission ended: Capture "..captureTarget end,
+	startAction = function() trigger.action.outSoundForCoalition(2,"ding.ogg") end,
+	endAction = function() 
+		captureTarget = nil 
+		trigger.action.outSoundForCoalition(2,"cancel.ogg")
+	end,
+	isActive = function()
+		if not captureTarget then return false end
+		
+		local targetzn = bc:getZoneByName(captureTarget)
+		return targetzn.side == 0 and targetzn.active
+	end
+})
+
+function generateCaptureMission()
+	if captureTarget ~= nil then return end
+		
+	local validzones = {}
+	for _,v in ipairs(bc.zones) do
+		if v.side == 0 and v.active then
+			table.insert(validzones, v.zone)
+		end
+	end
+	
+	if #validzones == 0 then return end
+	
+	local choice = math.random(1, #validzones)
+	if validzones[choice] then
+		captureTarget = validzones[choice]
+		return true
+	end
+end
+
+function generateAttackMission()
+	if attackTarget ~= nil then return end
+		
+	local validzones = {}
+	for _,v in ipairs(bc.connections) do
+		local to = bc:getZoneByName(v.to)
+		local from = bc:getZoneByName(v.from)
+		
+		if from.side ~= to.side and from.side ~= 0  and to.side ~= 0 and from.active and to.active then
+			if from.side == 1 then
+				table.insert(validzones, from.zone)
+			elseif to.side == 1 then
+				table.insert(validzones, to.zone)
+			end
+		end
+	end
+	
+	if #validzones == 0 then return end
+	
+	local choice = math.random(1, #validzones)
+	if validzones[choice] then
+		attackTarget = validzones[choice]
+		return true
+	end
+end
+
+function generateSupplyMission()
+	if resupplyTarget ~= nil then return end
+		
+	local validzones = {}
+	for _,v in ipairs(bc.zones) do
+		if v.side == 2 and v:canRecieveSupply() then
+			table.insert(validzones, v.zone)
+		end
+	end
+	
+	if #validzones == 0 then return end
+	
+	local choice = math.random(1, #validzones)
+	if validzones[choice] then
+		resupplyTarget = validzones[choice]
+		return true
+	end
+end
+
+timer.scheduleFunction(function(_, time)
+	if generateCaptureMission() then
+		return time+300
+	else
+		return time+120
+	end
+end, {}, timer.getTime() + 20)
+
+timer.scheduleFunction(function(_, time)
+	if generateAttackMission() then
+		return time+300
+	else
+		return time+120
+	end
+end, {}, timer.getTime() + 40)
+
+timer.scheduleFunction(function(_, time)
+	if generateSupplyMission() then
+		return time+300
+	else
+		return time+120
+	end
+end, {}, timer.getTime() + 60)
+
+mc:init()
 
 function respawnStatics()
 	for i,v in pairs(cargoSpawns) do
