@@ -1035,7 +1035,7 @@ do
 		end, {context = self, zone = tgtzone, group = groupname}, timer.getTime()+2)
 	end
 	
-	function BattleCommander:engageZone(tgtzone, groupname, expendAmmount)
+	function BattleCommander:engageZone(tgtzone, groupname, expendAmmount, weapon)
 		local zn = self:getZoneByName(tgtzone)
 		local group = Group.getByName(groupname)
 		
@@ -1055,20 +1055,72 @@ do
 			expCount = expendAmmount
 		end
 		
+		local wepType = Weapon.flag.AnyWeapon
+		if weapon then
+			wepType = weapon
+		end
+		
 		for i,v in pairs(zn.built) do
 			local g = Group.getByName(v)
 			if g then
-				task = { 
+				local task = { 
 				  id = 'AttackGroup', 
 				  params = { 
 					groupId = g:getID(),
-					expend = expCount
+					expend = expCount,
+					weaponType = wepType,
+					groupAttack = true
 				  } 
 				}
 				
 				cnt:pushTask(task)
 			end
 		end
+	end
+	
+	function BattleCommander:carpetBombRandomUnitInZone(tgtzone, groupname)
+		local zn = self:getZoneByName(tgtzone)
+		local group = Group.getByName(groupname)
+		
+		if group and zn.side == group:getCoalition() then
+			return 'Can not engage friendly zone'
+		end
+		
+		if not group then
+			return 'Not available'
+		end
+		
+		local cnt=group:getController()
+		
+		local viabletgts = {}
+		for i,v in pairs(zn.built) do
+			local g = Group.getByName(v)
+			if g then
+				for i2,v2 in ipairs(g:getUnits()) do
+					table.insert(viabletgts, v2)
+				end
+			end
+		end
+		
+		local choice = viabletgts[math.random(1,#viabletgts)]
+		local p = choice:getPoint()
+		
+		local task = { 
+		  id = 'CarpetBombing', 
+		  params = { 
+			attackType = 'Carpet',
+			carpetLength = 1000,
+			expend = AI.Task.WeaponExpend.ALL,
+			weaponType = Weapon.flag.AnyUnguidedBomb,
+			groupAttack = true,
+			attackQty = 1,
+			altitudeEnabled = true,
+			altitude = 9144,
+			point = {x=p.x, y=p.z}
+		  } 
+		}
+		cnt:popTask()
+		cnt:pushTask(task)
 	end
 	
 	function BattleCommander:jamRadarsAtZone(groupname, zonename)
