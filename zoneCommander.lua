@@ -127,7 +127,7 @@ do
 			newgr = mist.cloneInZone(grname, spname, true, nil, {initTasks = true})
 		end
 		
-		return newgr;
+		return newgr
 	end
 end
 
@@ -1074,6 +1074,21 @@ do
 				}
 				
 				cnt:pushTask(task)
+			else
+				local s = StaticObject.getByName(v)
+				if s then
+					local task = { 
+					  id = 'AttackUnit', 
+					  params = { 
+						groupId = s:getID(),
+						expend = expCount,
+						weaponType = wepType,
+						groupAttack = true
+					  } 
+					}
+					
+					cnt:pushTask(task)
+				end
 			end
 		end
 	end
@@ -1098,6 +1113,11 @@ do
 			if g then
 				for i2,v2 in ipairs(g:getUnits()) do
 					table.insert(viabletgts, v2)
+				end
+			else
+				local s = StaticObject.getByName(v)
+				if s then
+					table.insert(viabletgts,s)
 				end
 			end
 		end
@@ -1202,6 +1222,11 @@ do
 					for i2,v2 in ipairs(g:getUnits()) do
 						table.insert(units, v2)
 					end
+				else
+					local s = StaticObject.getByName(v)
+					if s then
+						table.insert(units, s)
+					end
 				end
 			end
 			
@@ -1283,7 +1308,14 @@ do
 		states.accounts = self.accounts
 		states.shops = self.shops
 		states.difficultyModifier = self.difficultyModifier
-		states.playerStats = self.playerStats
+		states.playerStats = {}
+		if self.playerStats then
+			for i,v in pairs(self.playerStats) do
+				local sanitized = i:gsub("'","@ap@")
+				states.playerStats[sanitized] = v
+			end
+		end
+		
 		return states
 	end
 	
@@ -1922,7 +1954,11 @@ do
 			end
 			
 			if zonePersistance.playerStats then
-				self.playerStats = zonePersistance.playerStats
+				self.playerStats = {}
+				for i,v in pairs(zonePersistance.playerStats) do
+					local desanitized = i:gsub("@ap@","'")
+					self.playerStats[desanitized] = v
+				end
 			end
 		end
 	end
@@ -2005,6 +2041,13 @@ do
 					gr:destroy()
 				end
 				
+				if not gr then
+					local st = StaticObject.getByName(v)
+					if st and st:getLife() < 1 then
+						st:destroy()
+					end
+				end
+				
 				self.built[i] = nil	
 			end
 			
@@ -2052,6 +2095,11 @@ do
 					grhealth = math.min(grhealth,100)
 					grhealth = math.max(grhealth,1)
 					status = status..'\n  '..v..' '..grhealth..'%'
+				else
+					local st = StaticObject.getByName(v)
+					if st then
+						status = status..'\n  '..v..' 100%'
+					end
 				end
 			end
 		end
@@ -2167,27 +2215,31 @@ do
 			if context.remainingUnits then
 				for i2,v2 in pairs(context.built) do
 					local bgr = Group.getByName(v2)
-					for i3,v3 in ipairs(bgr:getUnits()) do
-						local budesc = v3:getDesc()
-						local found = false
-						if context.remainingUnits[i2] then
-							local delindex = nil
-							for i4,v4 in ipairs(context.remainingUnits[i2]) do
-								if v4 == budesc['typeName'] then
-									delindex = i4
-									found = true
-									break
+					if bgr then
+						for i3,v3 in ipairs(bgr:getUnits()) do
+							local budesc = v3:getDesc()
+							local found = false
+							if context.remainingUnits[i2] then
+								local delindex = nil
+								for i4,v4 in ipairs(context.remainingUnits[i2]) do
+									if v4 == budesc['typeName'] then
+										delindex = i4
+										found = true
+										break
+									end
+								end
+								
+								if delindex then
+									table.remove(context.remainingUnits[i2], delindex)
 								end
 							end
 							
-							if delindex then
-								table.remove(context.remainingUnits[i2], delindex)
+							if not found then
+								v3:destroy()
 							end
 						end
-						
-						if not found then
-							v3:destroy()
-						end
+					else
+						--todo: do we need to handle statics?
 					end
 				end
 			end	
@@ -2228,14 +2280,31 @@ do
 	
 		for i,v in pairs(self.built) do
 			local gr = Group.getByName(v)
+			local st = StaticObject.getByName(v)
 			if gr and gr:getSize() == 0 then
 				gr:destroy()
 			end
 			
-			if not gr or gr:getSize() == 0 then
+			if not gr then
+				if st and st:getLife()<1 then
+					st:destroy()
+				end
+			end
+			
+			if not gr and not st then
 				self.built[i] = nil
 				if GlobalSettings.messages.grouplost then trigger.action.outText(self.zone..' lost group '..v, 5) end
 			end		
+			
+			if gr and gr:getSize() == 0 then
+				self.built[i] = nil
+				if GlobalSettings.messages.grouplost then trigger.action.outText(self.zone..' lost group '..v, 5) end
+			end	
+			
+			if st and st:getLife()<1 then
+				self.built[i] = nil
+				if GlobalSettings.messages.grouplost then trigger.action.outText(self.zone..' lost group '..v, 5) end
+			end	
 		end
 		
 		local empty = true
@@ -2319,6 +2388,11 @@ do
 			local gr = Group.getByName(v)
 			if gr then
 				gr:destroy()
+			else
+				local st = StaticObject.getByName(v)
+				if st then
+					st:destroy()
+				end
 			end
 		end
 	end
