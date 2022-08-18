@@ -1,3 +1,6 @@
+If you like my work, and would like to support development, feel free to [buy me a beer](https://www.buymeacoffee.com/dzsek).
+
+
 # BattleCommander
 
 ## Constructor
