@@ -1311,7 +1311,8 @@ do
 		states.playerStats = {}
 		if self.playerStats then
 			for i,v in pairs(self.playerStats) do
-				local sanitized = i:gsub("'","@ap@")
+				local sanitized = i:gsub("\\","\\\\")
+				sanitized = sanitized:gsub("'","\\'")
 				states.playerStats[sanitized] = v
 			end
 		end
@@ -1954,11 +1955,7 @@ do
 			end
 			
 			if zonePersistance.playerStats then
-				self.playerStats = {}
-				for i,v in pairs(zonePersistance.playerStats) do
-					local desanitized = i:gsub("@ap@","'")
-					self.playerStats[desanitized] = v
-				end
+				self.playerStats = zonePersistance.playerStats
 			end
 		end
 	end
