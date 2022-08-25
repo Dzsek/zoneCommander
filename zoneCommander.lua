@@ -680,7 +680,7 @@ do
 		GlobalSettings.resetDifficultyScaling()
 		for i,v in pairs(GlobalSettings.respawnTimers[coalition]) do
 			for i2,v2 in pairs(v) do
-				GlobalSettings.respawnTimers[coalition][i][i2] = math.floor(GlobalSettings.respawnTimers[coalition][i][i2] * value)
+				GlobalSettings.respawnTimers[coalition][i][i2] = math.floor(GlobalSettings.respawnTimers[coalition][i][i2] / value)
 			end
 		end
 	end
@@ -727,14 +727,14 @@ do
 	--difficulty scaling
 	
 	function BattleCommander:increaseDifficulty()
-		self.difficultyModifier = math.max(self.difficultyModifier-self.difficulty.escalation, self.difficulty.min)
+		self.difficultyModifier = math.min(self.difficultyModifier + self.difficulty.escalation, self.difficulty.max)
 		GlobalSettings.setDifficultyScaling(self.difficulty.start + self.difficultyModifier, self.difficulty.coalition)
 		self.lastDiffChange = timer.getAbsTime()
 		env.info('increasing diff: '..self.difficultyModifier)
 	end
 	
 	function BattleCommander:decreaseDifficulty()
-		self.difficultyModifier = math.min(self.difficultyModifier+self.difficulty.fade, self.difficulty.max)
+		self.difficultyModifier = math.max(self.difficultyModifier - self.difficulty.fade, self.difficulty.min)
 		GlobalSettings.setDifficultyScaling(self.difficulty.start + self.difficultyModifier,self.difficulty.coalition)
 		self.lastDiffChange = timer.getAbsTime()
 		env.info('decreasing diff: '..self.difficultyModifier)
