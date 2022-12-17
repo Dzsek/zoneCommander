@@ -2825,6 +2825,7 @@ LogisticCommander = {}
 do
 	LogisticCommander.allowedTypes = {}
 	LogisticCommander.allowedTypes['Ka-50'] = true
+	LogisticCommander.allowedTypes['Ka-50_3'] = true
 	LogisticCommander.allowedTypes['Mi-24P'] = true
 	LogisticCommander.allowedTypes['SA342Mistral'] = true
 	LogisticCommander.allowedTypes['SA342L'] = true
