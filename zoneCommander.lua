@@ -2462,6 +2462,17 @@ do
 		return false
 	end
 	
+	function ZoneCommander:clearWreckage()
+		local zn = trigger.misc.getZone(self.zone)
+		local pos =  {
+			x = zn.point.x, 
+			y = land.getHeight({x = zn.point.x, y = zn.point.z}), 
+			z= zn.point.z
+		}
+		local radius = zn.radius
+		world.removeJunk({id = world.VolumeType.SPHERE,params = {point = pos ,radius = radius}})
+	end
+	
 	function ZoneCommander:upgrade()
 		if self.active and self.side ~= 0 then
 			local upgrades
@@ -2480,6 +2491,7 @@ do
 					mist.respawnGroup(v, true)
 					if GlobalSettings.messages.repaired then trigger.action.outText('Group '..v..' at '..self.zone..' was repaired', 5) end
 					self:runTriggers('repaired')
+					self:clearWreckage()
 					complete = true
 					break
 				end
@@ -2493,6 +2505,7 @@ do
 						self.built[i] = gr.name
 						if GlobalSettings.messages.upgraded then trigger.action.outText(self.zone..' defenses upgraded', 5) end
 						self:runTriggers('upgraded')
+						self:clearWreckage()
 						break
 					end
 				end			
@@ -2565,6 +2578,11 @@ do
 		return false
 	end
 	
+	function GroupCommander:clearWreckage()
+		local tg = self.zoneCommander.battleCommander:getZoneByName(self.targetzone)
+		tg:clearWreckage()
+	end
+	
 	function GroupCommander:processAir()-- states: [inhangar, preparing, takeoff, inair, landed, dead]
 		local gr = Group.getByName(self.name)
 		local coalition = self.side
@@ -2589,6 +2607,7 @@ do
 		elseif self.state == 'preparing' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].preparing then
 				if self:shouldSpawn() then
+					self:clearWreckage()
 					mist.respawnGroup(self.name,true)
 					self.state = 'takeoff'
 					self.lastStateTime = timer.getAbsTime()
@@ -2666,6 +2685,7 @@ do
 		elseif self.state == 'preparing' then
 			if timer.getAbsTime() - self.lastStateTime > GlobalSettings.respawnTimers[coalition][self.mission].preparing then
 				if self:shouldSpawn() then
+					self:clearWreckage()
 					mist.respawnGroup(self.name,true)
 					self.state = 'enroute'
 					self.lastStateTime = timer.getAbsTime()
