@@ -2462,15 +2462,16 @@ do
 		return false
 	end
 	
+	--disabled since it causes crashes over time
 	function ZoneCommander:clearWreckage()
-		local zn = trigger.misc.getZone(self.zone)
-		local pos =  {
-			x = zn.point.x, 
-			y = land.getHeight({x = zn.point.x, y = zn.point.z}), 
-			z= zn.point.z
-		}
-		local radius = zn.radius
-		world.removeJunk({id = world.VolumeType.SPHERE,params = {point = pos ,radius = radius}})
+		-- local zn = trigger.misc.getZone(self.zone)
+		-- local pos =  {
+		-- 	x = zn.point.x, 
+		-- 	y = land.getHeight({x = zn.point.x, y = zn.point.z}), 
+		-- 	z= zn.point.z
+		-- }
+		-- local radius = zn.radius
+		-- world.removeJunk({id = world.VolumeType.SPHERE,params = {point = pos ,radius = radius}})
 	end
 	
 	function ZoneCommander:upgrade()
