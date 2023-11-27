@@ -1578,7 +1578,7 @@ do
 		
 		local ev = {}
 		function ev:onEvent(event)
-			if event.id==20 and event.initiator and event.initiator:getCategory() == Object.Category.UNIT and (event.initiator:getDesc().category == Unit.Category.AIRPLANE or event.initiator:getDesc().category == Unit.Category.HELICOPTER)  then
+			if event.id==20 and event.initiator and Object.getCategory(event.initiator) == Object.Category.UNIT and (Unit.getCategory(event.initiator) == Unit.Category.AIRPLANE or Unit.getCategory(event.initiator) == Unit.Category.HELICOPTER)  then
 				local pname = event.initiator:getPlayerName()
 				if pname then
 					local gr = event.initiator:getGroup()
@@ -1711,7 +1711,7 @@ do
 		ev.default = defaultReward
 		function ev:onEvent(event)
 			local unit = event.initiator
-			if unit and unit:getCategory() == Object.Category.UNIT and (unit:getDesc().category == Unit.Category.AIRPLANE or unit:getDesc().category == Unit.Category.HELICOPTER)then
+			if unit and Object.getCategory(unit) == Object.Category.UNIT and (Unit.getCategory(unit) == Unit.Category.AIRPLANE or Unit.getCategory(unit) == Unit.Category.HELICOPTER)then
 				local side = unit:getCoalition()
 				local groupid = unit:getGroup():getID()
 				local pname = unit:getPlayerName()
@@ -1805,7 +1805,7 @@ do
 	end
 	
 	function BattleCommander:objectToRewardPoints(object) -- returns points,message
-		if object:getCategory() == Object.Category.UNIT then
+		if Object.getCategory(object) == Object.Category.UNIT then
 			local targetType = object:getDesc().category
 			local earning = self.defaultReward
 			local message = 'Unit kill +'..earning..' credits'
