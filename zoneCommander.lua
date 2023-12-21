@@ -1578,7 +1578,7 @@ do
 		
 		local ev = {}
 		function ev:onEvent(event)
-			if event.id==20 and event.initiator and Object.getCategory(event.initiator) == Object.Category.UNIT and (Unit.getCategory(event.initiator) == Unit.Category.AIRPLANE or Unit.getCategory(event.initiator) == Unit.Category.HELICOPTER)  then
+			if event.id==20 and event.initiator and Object.getCategory(event.initiator) == Object.Category.UNIT and (Unit.getCategoryEx(event.initiator) == Unit.Category.AIRPLANE or Unit.getCategoryEx(event.initiator) == Unit.Category.HELICOPTER)  then
 				local pname = event.initiator:getPlayerName()
 				if pname then
 					local gr = event.initiator:getGroup()
@@ -1711,7 +1711,7 @@ do
 		ev.default = defaultReward
 		function ev:onEvent(event)
 			local unit = event.initiator
-			if unit and Object.getCategory(unit) == Object.Category.UNIT and (Unit.getCategory(unit) == Unit.Category.AIRPLANE or Unit.getCategory(unit) == Unit.Category.HELICOPTER)then
+			if unit and Object.getCategory(unit) == Object.Category.UNIT and (Unit.getCategoryEx(unit) == Unit.Category.AIRPLANE or Unit.getCategoryEx(unit) == Unit.Category.HELICOPTER)then
 				local side = unit:getCoalition()
 				local groupid = unit:getGroup():getID()
 				local pname = unit:getPlayerName()
