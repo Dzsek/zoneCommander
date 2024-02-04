@@ -553,7 +553,7 @@ do
 			elseif self.target then
 				local un = Unit.getByName(self.target)
 				if un then
-					if un:getLife()>=1 then
+					if un:ixExist() and un:getLife()>=1 then
 						self:setTarget(un)
 					else
 						self:searchTarget()
@@ -1578,13 +1578,21 @@ do
 		
 		local ev = {}
 		function ev:onEvent(event)
-			if event.id==20 and event.initiator and Object.getCategory(event.initiator) == Object.Category.UNIT and (Unit.getCategoryEx(event.initiator) == Unit.Category.AIRPLANE or Unit.getCategoryEx(event.initiator) == Unit.Category.HELICOPTER)  then
+			if event.id==world.event.S_EVENT_BIRTH and event.initiator and Object.getCategory(event.initiator) == Object.Category.UNIT and (Unit.getCategoryEx(event.initiator) == Unit.Category.AIRPLANE or Unit.getCategoryEx(event.initiator) == Unit.Category.HELICOPTER)  then
 				local pname = event.initiator:getPlayerName()
 				if pname then
 					local gr = event.initiator:getGroup()
 					if trigger.misc.getUserFlag(gr:getName())==1 then
 						trigger.action.outTextForGroup(gr:getID(), 'Can not spawn as '..gr:getName()..' in enemy/neutral zone',5)
 						event.initiator:destroy()
+						
+						for i,v in pairs(net.get_player_list()) do
+							if net.get_name(v) == pname then
+								net.send_chat_to('Can not spawn as '..gr:getName()..' in enemy/neutral zone' , v)
+								net.force_player_slot(v, 0, '')
+								break
+							end
+						end
 					end
 				end
 			end
