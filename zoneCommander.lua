@@ -1719,7 +1719,7 @@ do
 		ev.default = defaultReward
 		function ev:onEvent(event)
 			local unit = event.initiator
-			if unit and Object.getCategory(unit) == Object.Category.UNIT and (Unit.getCategoryEx(unit) == Unit.Category.AIRPLANE or Unit.getCategoryEx(unit) == Unit.Category.HELICOPTER)then
+			if unit and unit.id_ ~= 1 and Object.getCategory(unit) == Object.Category.UNIT and (Unit.getCategoryEx(unit) == Unit.Category.AIRPLANE or Unit.getCategoryEx(unit) == Unit.Category.HELICOPTER)then
 				local side = unit:getCoalition()
 				local groupid = unit:getGroup():getID()
 				local pname = unit:getPlayerName()
